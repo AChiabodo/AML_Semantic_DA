@@ -83,6 +83,12 @@ def train(args, model, optimizer, dataloader_train, dataloader_val):
                 loss3 = loss_func(out32, label.squeeze(1))
                 loss = loss1 + loss2 + loss3
 
+                if i % 100 == 0:
+                    print('epoch {}, iter {}, loss1: {}, loss2: {}, loss3: {}'.format(epoch, i, loss1, loss2, loss3))
+                    colorized_predictions , colorized_labels = CityScapes.visualize_prediction(output, label)
+                    writer.add_image('epoch%d/iter%d/predicted_label' % (epoch, i), np.array(colorized_predictions), step, dataformats='HWC')
+                    writer.add_image('epoch%d/iter%d/correct_labels' % (epoch, i), np.array(colorized_labels), step, dataformats='HWC')
+
             scaler.scale(loss).backward()
             scaler.step(optimizer)
             scaler.update()
@@ -146,7 +152,7 @@ def parse_args():
                        default=False,
     )
     parse.add_argument('--num_epochs',
-                       type=int, default=300,
+                       type=int, default=50,#300
                        help='Number of epochs to train for')
     parse.add_argument('--epoch_start_i',
                        type=int,
@@ -158,7 +164,7 @@ def parse_args():
                        help='How often to save checkpoints (epochs)')
     parse.add_argument('--validation_step',
                        type=int,
-                       default=1,
+                       default=5,
                        help='How often to perform validation (epochs)')
     parse.add_argument('--crop_height',
                        type=int,
@@ -170,15 +176,15 @@ def parse_args():
                        help='Width of cropped/resized input image to modelwork')
     parse.add_argument('--batch_size',
                        type=int,
-                       default=2,
+                       default=5, #2
                        help='Number of images in each batch')
     parse.add_argument('--learning_rate',
                         type=float,
-                        default=0.01,
+                        default=0.005, #0.01
                         help='learning rate used for train')
     parse.add_argument('--num_workers',
                        type=int,
-                       default=4,
+                       default=12, #4
                        help='num of workers')
     parse.add_argument('--num_classes',
                        type=int,
@@ -194,7 +200,7 @@ def parse_args():
                        help='whether to user gpu for training')
     parse.add_argument('--save_model_path',
                        type=str,
-                       default=None,
+                       default='trained_models',
                        help='path to save model')
     parse.add_argument('--optimizer',
                        type=str,
@@ -215,9 +221,9 @@ def main():
     ## dataset
     n_classes = args.num_classes
 
-    mode = args.mode
+    split = args.mode
 
-    train_dataset = CityScapes(mode)
+    train_dataset = CityScapes(split = split)
     dataloader_train = DataLoader(train_dataset,
                     batch_size=args.batch_size,
                     shuffle=False,
@@ -225,7 +231,7 @@ def main():
                     pin_memory=False,
                     drop_last=True)
 
-    val_dataset = CityScapes(mode='val')
+    val_dataset = CityScapes(split='val')
     dataloader_val = DataLoader(val_dataset,
                        batch_size=1,
                        shuffle=False,
