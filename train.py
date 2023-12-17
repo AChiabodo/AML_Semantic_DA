@@ -83,7 +83,7 @@ def train(args, model, optimizer, dataloader_train, dataloader_val):
                 loss3 = loss_func(out32, label.squeeze(1))
                 loss = loss1 + loss2 + loss3
 
-                if i % 100 == 0:
+                if i == 0 and epoch % 2 == 0: #saves the first image in the batch to tensorboard
                     print('epoch {}, iter {}, loss1: {}, loss2: {}, loss3: {}'.format(epoch, i, loss1, loss2, loss3))
                     colorized_predictions , colorized_labels = CityScapes.visualize_prediction(output, label)
                     writer.add_image('epoch%d/iter%d/predicted_label' % (epoch, i), np.array(colorized_predictions), step, dataformats='HWC')
