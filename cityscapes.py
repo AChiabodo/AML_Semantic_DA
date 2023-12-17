@@ -60,7 +60,6 @@ class CityScapes(VisionDataset):
     train_id_to_color.append([0, 0, 0])
     train_id_to_color = np.array(train_id_to_color)
     id_to_train_id = np.array([c.train_id for c in classes])
-    color_to_train_id = {tuple(c.color): c.train_id for c in classes}
 
     def __init__(
         self,
