@@ -161,3 +161,4 @@ cython_debug/
 dataset/
 runs/
 trained_models/
+pretrained_weights/
