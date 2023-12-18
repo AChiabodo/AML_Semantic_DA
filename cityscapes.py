@@ -63,18 +63,19 @@ class CityScapes(VisionDataset):
 
     def __init__(
         self,
-        root: str = "dataset\\cityscapes",
+        root: str = "dataset",
         split: str = "train",
         mode: str = "fine",
         target_type: Union[List[str], str] = "semantic",
         transform: Optional[Callable] = None,
         target_transform: Optional[Callable] = None,
+        transforms: Optional[Callable] = None,
     ) -> None:
         super().__init__(root, transforms, transform, target_transform)
         print("root: ", root)
         self.mode = "gtFine" if mode == "fine" else "gtCoarse"
-        self.images_dir = os.path.join(self.root,"images",split)
-        self.targets_dir = os.path.join(self.root, self.mode, split)
+        self.images_dir = os.path.join(self.root,"cityscapes","images",split)
+        self.targets_dir = os.path.join(self.root,"cityscapes", self.mode, split)
         self.target_type = target_type
         self.split = split
         self.images = []
@@ -137,11 +138,11 @@ class CityScapes(VisionDataset):
         if self.transform is not None and self.target_transform is not None:
             image, target = self.transforms(image, target)
         else:
-            transform = transforms.Compose([transforms.ToTensor() , transforms.Resize((512,1024))])
+            transform = transforms.Compose([transforms.Resize((512,1024)),transforms.ToTensor()])
             image = transform(image)
-            target = torch.from_numpy( np.array( F.resize(target, self.size, Image.NEAREST), dtype='uint8') )
+            target = torch.from_numpy( np.array( F.resize(target, (512,1024), Image.NEAREST, antialias=True), dtype='uint8') ) #
 
-        return image, np.array(target)
+        return image, target
 
     def __len__(self) -> int:
         return len(self.images)

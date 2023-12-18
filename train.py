@@ -144,7 +144,7 @@ def parse_args():
     parse.add_argument('--pretrain_path',
                       dest='pretrain_path',
                       type=str,
-                      default='',
+                      default='',#pretrained_weights\STDCNet813M_73.91.tar
     )
     parse.add_argument('--use_conv_last',
                        dest='use_conv_last',
