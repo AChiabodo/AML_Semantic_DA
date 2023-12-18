@@ -176,15 +176,15 @@ def parse_args():
                        help='Width of cropped/resized input image to modelwork')
     parse.add_argument('--batch_size',
                        type=int,
-                       default=4, #2
+                       default=2, #2
                        help='Number of images in each batch')
     parse.add_argument('--learning_rate',
                         type=float,
-                        default=0.02, #0.01
+                        default=0.005, #0.01
                         help='learning rate used for train')
     parse.add_argument('--num_workers',
                        type=int,
-                       default=6, #4
+                       default=2, #4
                        help='num of workers')
     parse.add_argument('--num_classes',
                        type=int,
