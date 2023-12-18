@@ -142,13 +142,12 @@ class STDCNet813(nn.Module):
         self.x32 = nn.Sequential(self.features[6:])
 
         if pretrain_model:
-            print('use pretrain model {}'.format(pretrain_model))
             self.init_weight(pretrain_model)
         else:
             self.init_params()
 
     def init_weight(self, pretrain_model):
-
+        print('load pretrained model {}'.format(pretrain_model))
         state_dict = torch.load(pretrain_model)["state_dict"]
         self_state_dict = self.state_dict()
         for k, v in state_dict.items():

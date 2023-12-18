@@ -4,13 +4,13 @@ from collections import namedtuple
 from typing import Any, Callable, Dict, List, Optional, Tuple, Union
 
 from PIL import Image
-import torchvision.transforms.functional as F
+
 from torchvision.datasets.utils import extract_archive, iterable_to_str, verify_str_arg
 from torchvision.datasets.vision import VisionDataset
 from torchvision import transforms
 import numpy as np
 import torch
-class CityScapes(VisionDataset):
+class GTA5(VisionDataset):
 
     # Based on https://github.com/mcordts/cityscapesScripts
     CityscapesClass = namedtuple(
@@ -63,52 +63,23 @@ class CityScapes(VisionDataset):
 
     def __init__(
         self,
-        root: str = "dataset\\cityscapes",
+        root: str = "dataset",
         split: str = "train",
-        mode: str = "fine",
-        target_type: Union[List[str], str] = "semantic",
         transform: Optional[Callable] = None,
         target_transform: Optional[Callable] = None,
+        transforms: Optional[Callable] = None,
     ) -> None:
         super().__init__(root, transforms, transform, target_transform)
         print("root: ", root)
-        self.mode = "gtFine" if mode == "fine" else "gtCoarse"
-        self.images_dir = os.path.join(self.root,"images",split)
-        self.targets_dir = os.path.join(self.root, self.mode, split)
-        self.target_type = target_type
+        self.images_dir = os.path.join(self.root,"images")
+        self.targets_dir = os.path.join(self.root, "labels")
         self.split = split
         self.images = []
         self.targets = []
-
-        verify_str_arg(mode, "mode", ("fine", "coarse"))
-        if mode == "fine":
-            valid_modes = ("train", "test", "val")
-        else:
-            valid_modes = ("train", "train_extra", "val")
-        msg = "Unknown value '{}' for argument split if mode is '{}'. Valid values are {{{}}}."
-        msg = msg.format(split, mode, iterable_to_str(valid_modes))
-        verify_str_arg(split, "split", valid_modes, msg)
-
-        if not isinstance(target_type, list):
-            self.target_type = [target_type]
-        [
-            verify_str_arg(value, "target_type", ("instance", "semantic", "polygon", "color" ))
-            for value in self.target_type
-        ]
-
-        for city in os.listdir(self.images_dir):
-            img_dir = os.path.join(self.images_dir, city)
-            target_dir = os.path.join(self.targets_dir, city)
-            for file_name in os.listdir(img_dir):
-                target_types = []
-                for t in self.target_type:
-                    target_name = "{}_{}".format(
-                        file_name.split("_leftImg8bit")[0], self._get_target_suffix(self.mode, t)
-                    )
-                    target_types.append(os.path.join(target_dir, target_name))
-
-                self.images.append(os.path.join(img_dir, file_name))
-                self.targets.append(target_types)
+        for file_name in os.listdir(self.images_dir):
+            target_name = file_name
+            self.images.append(os.path.join(self.images_dir, file_name))
+            self.targets.append(os.path.join(self.targets_dir, target_name))
 
     @classmethod
     def encode_target(cls, target):
@@ -131,16 +102,19 @@ class CityScapes(VisionDataset):
             else:
                 # Keep the target in grayscale, as it's typically a label map
                 target = Image.open(self.targets[index][i])
-            targets.append(target)
-        target = targets[0]
 
-        if self.transform is not None and self.target_transform is not None:
+            targets.append(target)
+
+        target = tuple(targets) if len(targets) > 1 else targets[0]
+
+        if self.transforms is not None:
             image, target = self.transforms(image, target)
         else:
-            transform = transforms.Compose([transforms.ToTensor() , transforms.Resize((512,1024))])
+            transform = transforms.Compose([transforms.ToTensor()])
             image = transform(image)
-            target = torch.from_numpy( np.array( F.resize(target, self.size, Image.NEAREST), dtype='uint8') )
-
+            target = torch.from_numpy( np.array( target, dtype='uint8') )
+            #target = transform(target)
+        #target = self.encode_target(target)
         return image, np.array(target)
 
     def __len__(self) -> int:
