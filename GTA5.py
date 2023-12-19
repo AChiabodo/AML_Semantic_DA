@@ -1,150 +1,169 @@
-import json
-import os
-from collections import namedtuple
-from typing import Any, Callable, Dict, List, Optional, Tuple, Union
+from pathlib import Path
 
-from PIL import Image
-
-from torchvision.datasets.utils import extract_archive, iterable_to_str, verify_str_arg
-from torchvision.datasets.vision import VisionDataset
-from torchvision import transforms
 import numpy as np
-import torch
-class GTA5(VisionDataset):
+from PIL import Image
+from torch.utils.data import Dataset as torchDataset
+import os
+from abc import ABCMeta
+from dataclasses import dataclass
+from typing import Tuple, Optional
+from utils import ExtResize, ExtToTensor, ExtTransforms , ExtCompose
+from cityscapes import CityScapes
+class BaseGTALabels(metaclass=ABCMeta):
+    pass
 
-    # Based on https://github.com/mcordts/cityscapesScripts
-    CityscapesClass = namedtuple(
-        "CityscapesClass",
-        ["name", "id", "train_id", "category", "category_id", "has_instances", "ignore_in_eval", "color"],
-    )
+@dataclass
+class GTA5Label:
+    ID: int
+    color: Tuple[int, int, int]
 
-    classes = [
-        CityscapesClass("unlabeled",            0, 255, "void", 0, False, True, (0, 0, 0)),
-        CityscapesClass("ego vehicle",          1, 255, "void", 0, False, True, (0, 0, 0)),
-        CityscapesClass("rectification border", 2, 255, "void", 0, False, True, (0, 0, 0)),
-        CityscapesClass("out of roi",           3, 255, "void", 0, False, True, (0, 0, 0)),
-        CityscapesClass("static",               4, 255, "void", 0, False, True, (0, 0, 0)),
-        CityscapesClass("dynamic",              5, 255, "void", 0, False, True, (111, 74, 0)),
-        CityscapesClass("ground",               6, 255, "void", 0, False, True, (81, 0, 81)),
-        CityscapesClass("road",                 7, 0, "flat", 1, False, False, (128, 64, 128)),
-        CityscapesClass("sidewalk",             8, 1, "flat", 1, False, False, (244, 35, 232)),
-        CityscapesClass("parking",              9, 255, "flat", 1, False, True, (250, 170, 160)),
-        CityscapesClass("rail track",           10, 255, "flat", 1, False, True, (230, 150, 140)),
-        CityscapesClass("building",             11, 2, "construction", 2, False, False, (70, 70, 70)),
-        CityscapesClass("wall",                 12, 3, "construction", 2, False, False, (102, 102, 156)),
-        CityscapesClass("fence",                13, 4, "construction", 2, False, False, (190, 153, 153)),
-        CityscapesClass("guard rail",           14, 255, "construction", 2, False, True, (180, 165, 180)),
-        CityscapesClass("bridge",               15, 255, "construction", 2, False, True, (150, 100, 100)),
-        CityscapesClass("tunnel",               16, 255, "construction", 2, False, True, (150, 120, 90)),
-        CityscapesClass("pole",                 17, 5, "object", 3, False, False, (153, 153, 153)),
-        CityscapesClass("polegroup",            18, 255, "object", 3, False, True, (153, 153, 153)),
-        CityscapesClass("traffic light",        19, 6, "object", 3, False, False, (250, 170, 30)),
-        CityscapesClass("traffic sign",         20, 7, "object", 3, False, False, (220, 220, 0)),
-        CityscapesClass("vegetation",           21, 8, "nature", 4, False, False, (107, 142, 35)),
-        CityscapesClass("terrain",              22, 9, "nature", 4, False, False, (152, 251, 152)),
-        CityscapesClass("sky",                  23, 10, "sky", 5, False, False, (70, 130, 180)),
-        CityscapesClass("person",               24, 11, "human", 6, True, False, (220, 20, 60)),
-        CityscapesClass("rider",                25, 12, "human", 6, True, False, (255, 0, 0)),
-        CityscapesClass("car",                  26, 13, "vehicle", 7, True, False, (0, 0, 142)),
-        CityscapesClass("truck",                27, 14, "vehicle", 7, True, False, (0, 0, 70)),
-        CityscapesClass("bus",                  28, 15, "vehicle", 7, True, False, (0, 60, 100)),
-        CityscapesClass("caravan",              29, 255, "vehicle", 7, True, True, (0, 0, 90)),
-        CityscapesClass("trailer",              30, 255, "vehicle", 7, True, True, (0, 0, 110)),
-        CityscapesClass("train",                31, 16, "vehicle", 7, True, False, (0, 80, 100)),
-        CityscapesClass("motorcycle",           32, 17, "vehicle", 7, True, False, (0, 0, 230)),
-        CityscapesClass("bicycle",              33, 18, "vehicle", 7, True, False, (119, 11, 32)),
-        CityscapesClass("license plate",        -1, -1, "vehicle", 7, False, True, (0, 0, 142)),
+
+class GTA5Labels_TaskCV2017(BaseGTALabels):
+    road = GTA5Label(ID=0, color=(128, 64, 128))
+    sidewalk = GTA5Label(ID=1, color=(244, 35, 232))
+    building = GTA5Label(ID=2, color=(70, 70, 70))
+    wall = GTA5Label(ID=3, color=(102, 102, 156))
+    fence = GTA5Label(ID=4, color=(190, 153, 153))
+    pole = GTA5Label(ID=5, color=(153, 153, 153))
+    light = GTA5Label(ID=6, color=(250, 170, 30))
+    sign = GTA5Label(ID=7, color=(220, 220, 0))
+    vegetation = GTA5Label(ID=8, color=(107, 142, 35))
+    terrain = GTA5Label(ID=9, color=(152, 251, 152))
+    sky = GTA5Label(ID=10, color=(70, 130, 180))
+    person = GTA5Label(ID=11, color=(220, 20, 60))
+    rider = GTA5Label(ID=12, color=(255, 0, 0))
+    car = GTA5Label(ID=13, color=(0, 0, 142))
+    truck = GTA5Label(ID=14, color=(0, 0, 70))
+    bus = GTA5Label(ID=15, color=(0, 60, 100))
+    train = GTA5Label(ID=16, color=(0, 80, 100))
+    motocycle = GTA5Label(ID=17, color=(0, 0, 230))
+    bicycle = GTA5Label(ID=18, color=(119, 11, 32))
+
+    list_ = [
+        road,
+        sidewalk,
+        building,
+        wall,
+        fence,
+        pole,
+        light,
+        sign,
+        vegetation,
+        terrain,
+        sky,
+        person,
+        rider,
+        car,
+        truck,
+        bus,
+        train,
+        motocycle,
+        bicycle,
     ]
 
-    train_id_to_color = [c.color for c in classes if (c.train_id != -1 and c.train_id != 255)]
-    train_id_to_color.append([0, 0, 0])
-    train_id_to_color = np.array(train_id_to_color)
-    id_to_train_id = np.array([c.train_id for c in classes])
+    @property
+    def support_id_list(self):
+        ret = [label.ID for label in self.list_]
+        return ret
 
-    def __init__(
-        self,
-        root: str = "dataset",
-        split: str = "train",
-        transform: Optional[Callable] = None,
-        target_transform: Optional[Callable] = None,
-        transforms: Optional[Callable] = None,
-    ) -> None:
-        super().__init__(root, transforms, transform, target_transform)
-        print("root: ", root)
-        self.images_dir = os.path.join(self.root,"images")
-        self.targets_dir = os.path.join(self.root, "labels")
-        self.split = split
-        self.images = []
-        self.targets = []
-        for file_name in os.listdir(self.images_dir):
-            target_name = file_name
-            self.images.append(os.path.join(self.images_dir, file_name))
-            self.targets.append(os.path.join(self.targets_dir, target_name))
 
-    @classmethod
-    def encode_target(cls, target):
-        return cls.id_to_train_id[np.array(target)]
 
-    @classmethod
-    def decode_target(cls, target):
-        target[target == 255] = 19
-        #target = target.astype('uint8') + 1
-        return cls.train_id_to_color[target]
+class GTA5(torchDataset):
+    label_map = GTA5Labels_TaskCV2017()
+    id_to_train_id = np.array([c.train_id for c in CityScapes.classes])
+    id_to_train_id = np.append(id_to_train_id, 255)
+    
+    class PathPair_ImgAndLabel:
+        IMG_DIR_NAME = "images"
+        LBL_DIR_NAME = "labels"
+        SUFFIX = ".png"
 
-    def __getitem__(self, index: int) -> Tuple[Any, Any]:
+        def __init__(self, root , labels_source="train_ids"):
+            self.root = root
+            self.labels_source = labels_source
 
-        image = Image.open(self.images[index]).convert("RGB")
+            self.img_paths = self.create_imgpath_list()
+            self.lbl_paths = self.create_lblpath_list()
+            
+        def __len__(self):
+            return len(self.img_paths)
 
-        targets: Any = []
-        for i, t in enumerate(self.target_type):
-            if t == "polygon":
-                target = self._load_json(self.targets[index][i])
-            else:
-                # Keep the target in grayscale, as it's typically a label map
-                target = Image.open(self.targets[index][i])
+        def __getitem__(self, idx: int):
+            img_path = self.img_paths[idx]
+            lbl_path = self.lbl_paths[idx]
+            return img_path, lbl_path
 
-            targets.append(target)
+        def create_imgpath_list(self):
+            img_dir = os.path.join(self.root , self.IMG_DIR_NAME)
+            img_path = [os.path.join(img_dir , path) for path in os.listdir(img_dir) if path.endswith(self.SUFFIX)]
+            return img_path
 
-        target = tuple(targets) if len(targets) > 1 else targets[0]
+        def create_lblpath_list(self):
+            lbl_dir = os.path.join(self.root,self.LBL_DIR_NAME)
+            if self.labels_source == "cityscapes":
+                lbl_path = [os.path.join(lbl_dir,path) for path in os.listdir(lbl_dir) if path.endswith(self.SUFFIX) and path.__contains__("_labelTrainIds")]
+            elif self.labels_source == "GTA5":
+                lbl_path = [os.path.join(lbl_dir,path) for path in os.listdir(lbl_dir) if (path.endswith(self.SUFFIX) and not path.__contains__("_labelTrainIds.png"))]
+            return lbl_path
 
+    def __init__(self, 
+                 root: Path,
+                 labels_source: str = "cityscapes", # "cityscapes" or "GTA5"
+                 transforms:Optional[ExtTransforms]=None):
+        """
+
+        :param root: (Path)
+            this is the directory path for GTA5 data
+        """
+        self.root = os.path.join(root , 'GTA5')
+        self.labels_source = labels_source
+        self.transforms = transforms
+        self.paths = self.PathPair_ImgAndLabel(root=self.root, labels_source=labels_source)
+        
+
+    def __len__(self):
+        return len(self.paths)
+
+    def __getitem__(self, idx, isPath=False):
+        img_path, lbl_path = self.paths[idx]
+        if isPath:
+            return img_path, lbl_path
+        img = self.read_img(img_path)
+        lbl = self.read_img(lbl_path)
+        
+        if self.labels_source == "GTA5":
+            lbl = Image.fromarray(self.map_to_cityscapes(lbl)) 
+            #if not os.path.exists(lbl_path.split('.png')[0] + "_labelTrainIds.png"):
+            #    lbl.convert('L').save(lbl_path.split('.png')[0] + "_labelTrainIds.png")
+        
         if self.transforms is not None:
-            image, target = self.transforms(image, target)
+            img, lbl = self.transforms(img, lbl)
         else:
-            transform = transforms.Compose([transforms.ToTensor()])
-            image = transform(image)
-            target = torch.from_numpy( np.array( target, dtype='uint8') )
-            #target = transform(target)
-        #target = self.encode_target(target)
-        return image, np.array(target)
+            img = ExtToTensor()(img)
+            lbl = ExtToTensor()(lbl)
+        return img, lbl
 
-    def __len__(self) -> int:
-        return len(self.images)
+    @staticmethod
+    def read_img(path):
+        img = Image.open(str(path))
+        #img = np.array(img)
+        return img
 
-    def extra_repr(self) -> str:
-        lines = ["Split: {split}", "Mode: {mode}", "Type: {target_type}"]
-        return "\n".join(lines).format(**self.__dict__)
+    @classmethod
+    def decode(cls, lbl):
+        return cls._decode(lbl, label_map=cls.label_map.list_)
 
-    def _load_json(self, path: str) -> Dict[str, Any]:
-        with open(path) as file:
-            data = json.load(file)
-        return data
+    @staticmethod
+    def _decode(lbl, label_map):
+        # remap_lbl = lbl[np.where(np.isin(lbl, cls.label_map.support_id_list), lbl, 0)]
+        color_lbl = np.zeros((*lbl.shape, 3))
+        for label in label_map:
+            color_lbl[lbl == label.ID] = label.color
+        return color_lbl
+    
+    def map_to_cityscapes(self, lbl):
+        return self.id_to_train_id[np.array(lbl)]
 
-    def _get_target_suffix(self, mode: str, target_type: str) -> str:
-        if target_type == "instance":
-            return f"{mode}_instanceIds.png"
-        elif target_type == "semantic":
-            return f"{mode}_labelTrainIds.png"
-        elif target_type == "color":
-            return f"{mode}_color.png"
-        else:
-            return f"{mode}_polygons.json"
 
-    @classmethod 
-    def visualize_prediction(cls,outputs,labels) -> Tuple[Any, Any]:
-        preds = outputs.max(1)[1].detach().cpu().numpy()
-        lab = labels.detach().cpu().numpy()
-        colorized_preds = cls.decode_target(preds).astype('uint8') # To RGB images, (N, H, W, 3), ranged 0~255, numpy array
-        colorized_labels = cls.decode_target(lab).astype('uint8')
-        colorized_preds = Image.fromarray(colorized_preds[0]) # to PIL Image
-        colorized_labels = Image.fromarray(colorized_labels[0])
-        return colorized_preds , colorized_labels
+
+
