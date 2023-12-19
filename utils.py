@@ -1,6 +1,6 @@
 import torch.nn as nn
 import torch
-from torch.nn import functional as F
+import torchvision.transforms.functional as F
 from PIL import Image
 import numpy as np
 import pandas as pd
@@ -8,6 +8,7 @@ import random
 import numbers
 import torchvision
 
+from PIL import Image
 
 def poly_lr_scheduler(optimizer, init_lr, iter, lr_decay_iter=1,
                       max_iter=300, power=0.9):
@@ -294,3 +295,53 @@ def group_weight(weight_group, module, norm_layer, lr):
 	weight_group.append(dict(params=group_decay, lr=lr))
 	weight_group.append(dict(params=group_no_decay, weight_decay=.0, lr=lr))
 	return weight_group
+
+##############################################################################################################
+
+class ExtTransforms(object):
+	def	__init__(self) -> None:
+		pass
+
+	def __call__(self, img, lbl):
+		pass
+
+class ExtResize(ExtTransforms):
+
+    def __init__(self, size, interpolation=Image.BILINEAR):
+        self.size = size
+        self.interpolation = interpolation
+
+    def __call__(self, img, lbl):
+
+        return F.resize(img, self.size, self.interpolation), F.resize(lbl, self.size, Image.NEAREST)
+    
+class ExtToTensor(ExtTransforms):
+    """Convert a ``PIL Image`` or ``numpy.ndarray`` to tensor.
+    Converts a PIL Image or numpy.ndarray (H x W x C) in the range
+    [0, 255] to a torch.FloatTensor of shape (C x H x W) in the range [0.0, 1.0].
+    """
+    def __init__(self, target_type='uint8'):
+        self.target_type = target_type
+    def __call__(self, pic, lbl):
+        return torch.from_numpy( np.array( pic, dtype=np.float32).transpose(2, 0, 1) ), torch.from_numpy( np.array( lbl, dtype=self.target_type) )
+	
+
+class ExtCompose(ExtTransforms):
+
+    def __init__(self, transforms):
+        self.transforms = transforms
+
+    def __call__(self, img, lbl):
+        for t in self.transforms:
+            img, lbl = t(img, lbl)
+        return img, lbl
+
+class ExtRandomHorizontalFlip(ExtTransforms):
+
+    def __init__(self, p=0.5):
+        self.p = p
+
+    def __call__(self, img, lbl):
+        if random.random() < self.p:
+            return F.hflip(img), F.hflip(lbl)
+        return img, lbl
