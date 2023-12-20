@@ -35,8 +35,8 @@ def val(args, model, dataloader, writer = None , epoch = None, step = None):
             
             if i == random_sample and writer is not None:
                 colorized_predictions , colorized_labels = CityScapes.visualize_prediction(predict, label)
-                writer.add_image('epoch%d/iter%d/predicted_label' % (epoch, i), np.array(colorized_predictions), step, dataformats='HWC')
-                writer.add_image('epoch%d/iter%d/correct_labels' % (epoch, i), np.array(colorized_labels), step, dataformats='HWC')
+                writer.add_image('epoch%d/iter%d/predicted_eval_labels' % (epoch, i), np.array(colorized_predictions), step, dataformats='HWC')
+                writer.add_image('epoch%d/iter%d/correct_eval_labels' % (epoch, i), np.array(colorized_labels), step, dataformats='HWC')
 
             predict = predict.squeeze(0)
             predict = reverse_one_hot(predict)
@@ -95,7 +95,7 @@ def train(args, model, optimizer, dataloader_train, dataloader_val):
                 if i == image_number and epoch % 2 == 0: #saves the first image in the batch to tensorboard
                     print('epoch {}, iter {}, loss1: {}, loss2: {}, loss3: {}'.format(epoch, i, loss1, loss2, loss3))
                     colorized_predictions , colorized_labels = CityScapes.visualize_prediction(output, label)
-                    writer.add_image('epoch%d/iter%d/predicted_label' % (epoch, i), np.array(colorized_predictions), step, dataformats='HWC')
+                    writer.add_image('epoch%d/iter%d/predicted_labels' % (epoch, i), np.array(colorized_predictions), step, dataformats='HWC')
                     writer.add_image('epoch%d/iter%d/correct_labels' % (epoch, i), np.array(colorized_labels), step, dataformats='HWC')
 
             scaler.scale(loss).backward()
