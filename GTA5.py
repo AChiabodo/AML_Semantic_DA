@@ -108,7 +108,7 @@ class GTA5(torchDataset):
 
     def __init__(self, 
                  root: Path,
-                 labels_source: str = "cityscapes", # "cityscapes" or "GTA5"
+                 labels_source: str = "GTA5", # "cityscapes" or "GTA5"
                  transforms:Optional[ExtTransforms]=None):
         """
 
