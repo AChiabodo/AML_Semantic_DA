@@ -3,7 +3,7 @@
 from model.model_stages import BiSeNet
 from cityscapes import CityScapes
 from GTA5 import GTA5
-from utils import ExtCompose, ExtResize, ExtToTensor, ExtTransforms, ExtRandomHorizontalFlip
+from utils import ExtCompose, ExtResize, ExtToTensor, ExtTransforms, ExtRandomHorizontalFlip , ExtScale
 import torch
 from torch.utils.data import DataLoader
 import logging
@@ -15,6 +15,9 @@ from utils import poly_lr_scheduler
 from utils import reverse_one_hot, compute_global_accuracy, fast_hist, per_class_iu
 from tqdm import tqdm
 import random
+import os
+from PIL import Image
+
 logger = logging.getLogger()
 
 
@@ -128,6 +131,8 @@ def train(args, model, optimizer, dataloader_train, dataloader_val):
                 torch.save(model.module.state_dict(), os.path.join(args.save_model_path, 'best.pth'))
             writer.add_scalar('epoch/precision_val', precision, epoch)
             writer.add_scalar('epoch/miou val', miou, epoch)
+    #final evaluation
+    val(args, model, dataloader_val, writer, epoch, step)
 
 def str2bool(v):
     if v.lower() in ('yes', 'true', 't', 'y', '1'):
@@ -175,7 +180,7 @@ def parse_args():
                        help='How often to save checkpoints (epochs)')
     parse.add_argument('--validation_step',
                        type=int,
-                       default=2,
+                       default=5,
                        help='How often to perform validation (epochs)')
     parse.add_argument('--crop_height',
                        type=int,
@@ -191,7 +196,7 @@ def parse_args():
                        help='Number of images in each batch')
     parse.add_argument('--learning_rate',
                         type=float,
-                        default=0.002, #0.01
+                        default=0.01, #0.01
                         help='learning rate used for train')
     parse.add_argument('--num_workers',
                        type=int,
@@ -229,7 +234,10 @@ def parse_args():
                           type=str,
                           default='GTA5',
                           help='CityScapes, GTA5 or CROSS_DOMAIN. Define on which dataset the model should be trained and evaluated.')
-
+    parse.add_argument('--resume_model_path',
+                       type=str,
+                       default='',
+                       help='Define the path to the model that should be loaded for training. If void, the last model will be loaded.')
     return parse.parse_args()
 
 
@@ -238,23 +246,28 @@ def main():
 
     ## dataset
     n_classes = args.num_classes
-
+    # to be changed
     if args.op_mode == 'GTA5':
         args.crop_height, args.crop_width = 526 , 957
-    transformations = ExtCompose([ExtResize((args.crop_height, args.crop_width)), ExtToTensor()]) #ExtRandomHorizontalFlip(),
-    eval_transformations = ExtCompose([ExtToTensor()])
+    
+    #transformations = ExtCompose([ExtResize((args.crop_height, args.crop_width)), ExtToTensor()]) #ExtRandomHorizontalFlip(),
+    transformations = ExtCompose([ExtScale(0.5,interpolation=Image.Resampling.BICUBIC), ExtToTensor()])
+    eval_transformations = ExtCompose([ExtScale(0.5,interpolation=Image.Resampling.BICUBIC), ExtToTensor()])
+    
     if args.op_mode == 'CityScapes':
         print('training on CityScapes')
         train_dataset = CityScapes(split = 'train',transforms=transformations)
         val_dataset = CityScapes(split='val',transforms=eval_transformations)
+
     elif args.op_mode == 'GTA5':
         print('training on GTA5')
-        train_dataset = GTA5(root='dataset',split="train",transforms=transformations)
-        val_dataset = GTA5(root='dataset',split="eval",transforms=eval_transformations)
+        train_dataset = GTA5(root='dataset',split="train",transforms=transformations,labels_source="cityscapes")
+        val_dataset = GTA5(root='dataset',split="eval",transforms=eval_transformations,labels_source="cityscapes")
+
     elif args.op_mode == 'CROSS_DOMAIN':
         print('training on CityScapes and validating on GTA5')
-        train_dataset = GTA5(root='dataset',transforms=transformations)
-        val_dataset = CityScapes(split = 'val',transforms=eval_transformations)
+        train_dataset = GTA5(root='dataset',transforms=transformations,labels_source="cityscapes")
+        val_dataset = CityScapes(split = 'val',transforms=transformations)
     else:
         print('not supported dataset \n')
         return None
@@ -270,8 +283,18 @@ def main():
                        shuffle=False,
                        num_workers=args.num_workers,
                        drop_last=False)
-
     model = BiSeNet(backbone=args.backbone, n_classes=n_classes, pretrain_model=args.pretrain_path, use_conv_last=args.use_conv_last)
+    
+    if args.resume == 'True':
+        try:
+            if args.resume_model_path == '':
+                args.resume_model_path = os.path.join(args.save_model_path, 'best.pth')
+            model.load_state_dict(torch.load(args.resume_model_path))
+            print('successfully resume model from %s' % args.resume_model_path)
+        except Exception as e:
+            print(e)
+            print('resume failed, try again')
+            return None
 
     if torch.cuda.is_available() and args.use_gpu:
         model = torch.nn.DataParallel(model).cuda()
@@ -287,11 +310,14 @@ def main():
     else:  # rmsprop
         print('not supported optimizer \n')
         return None
-
-    ## train loop
-    train(args, model, optimizer, dataloader_train, dataloader_val)
-    # final test
-    val(args, model, dataloader_val)
-
+    match args.mode :
+        case 'train':
+            ## train loop
+            train(args, model, optimizer, dataloader_train, dataloader_val)
+        case 'test':
+            val(args, model, dataloader_val)
+        case _:
+            print('not supported mode \n')
+            return None
 if __name__ == "__main__":
     main()
