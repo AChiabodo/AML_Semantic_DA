@@ -3,7 +3,7 @@
 from model.model_stages import BiSeNet
 from cityscapes import CityScapes
 from GTA5 import GTA5
-from utils import ExtCompose, ExtResize, ExtToTensor, ExtTransforms
+from utils import ExtCompose, ExtResize, ExtToTensor, ExtTransforms, ExtRandomHorizontalFlip
 import torch
 from torch.utils.data import DataLoader
 import logging
@@ -35,8 +35,9 @@ def val(args, model, dataloader, writer = None , epoch = None, step = None):
             
             if i == random_sample and writer is not None:
                 colorized_predictions , colorized_labels = CityScapes.visualize_prediction(predict, label)
-                writer.add_image('epoch%d/iter%d/predicted_eval_labels' % (epoch, i), np.array(colorized_predictions), step, dataformats='HWC')
-                writer.add_image('epoch%d/iter%d/correct_eval_labels' % (epoch, i), np.array(colorized_labels), step, dataformats='HWC')
+                writer.add_image('eval%d/iter%d/predicted_eval_labels' % (epoch, i), np.array(colorized_predictions), step, dataformats='HWC')
+                writer.add_image('eval%d/iter%d/correct_eval_labels' % (epoch, i), np.array(colorized_labels), step, dataformats='HWC')
+                writer.add_image('eval%d/iter%d/eval_original _data' % (epoch, i), np.array(data[0].cpu(),dtype='uint8'), step, dataformats='CHW')
 
             predict = predict.squeeze(0)
             predict = reverse_one_hot(predict)
@@ -97,6 +98,7 @@ def train(args, model, optimizer, dataloader_train, dataloader_val):
                     colorized_predictions , colorized_labels = CityScapes.visualize_prediction(output, label)
                     writer.add_image('epoch%d/iter%d/predicted_labels' % (epoch, i), np.array(colorized_predictions), step, dataformats='HWC')
                     writer.add_image('epoch%d/iter%d/correct_labels' % (epoch, i), np.array(colorized_labels), step, dataformats='HWC')
+                    writer.add_image('epoch%d/iter%d/original_data' % (epoch, i), np.array(data[0].cpu(),dtype='uint8'), step, dataformats='CHW')
 
             scaler.scale(loss).backward()
             scaler.step(optimizer)
@@ -225,7 +227,7 @@ def parse_args():
                        help='Define if the model should be trained from scratch or from a trained model')
     parse.add_argument('--op_mode',
                           type=str,
-                          default='CROSS_DOMAIN',
+                          default='GTA5',
                           help='CityScapes, GTA5 or CROSS_DOMAIN. Define on which dataset the model should be trained and evaluated.')
 
     return parse.parse_args()
@@ -237,20 +239,22 @@ def main():
     ## dataset
     n_classes = args.num_classes
 
-    transformations = ExtCompose([ExtResize((args.crop_height, args.crop_width)), ExtToTensor()])
-
+    if args.op_mode == 'GTA5':
+        args.crop_height, args.crop_width = 526 , 957
+    transformations = ExtCompose([ExtResize((args.crop_height, args.crop_width)), ExtToTensor()]) #ExtRandomHorizontalFlip(),
+    eval_transformations = ExtCompose([ExtToTensor()])
     if args.op_mode == 'CityScapes':
         print('training on CityScapes')
         train_dataset = CityScapes(split = 'train',transforms=transformations)
-        val_dataset = CityScapes(split='val',transforms=transformations)
+        val_dataset = CityScapes(split='val',transforms=eval_transformations)
     elif args.op_mode == 'GTA5':
         print('training on GTA5')
-        train_dataset = GTA5(root='dataset',transforms=transformations)
-        val_dataset = GTA5(root='dataset',transforms=transformations)
+        train_dataset = GTA5(root='dataset',split="train",transforms=transformations)
+        val_dataset = GTA5(root='dataset',split="eval",transforms=eval_transformations)
     elif args.op_mode == 'CROSS_DOMAIN':
         print('training on CityScapes and validating on GTA5')
         train_dataset = GTA5(root='dataset',transforms=transformations)
-        val_dataset = CityScapes(split = 'val',transforms=transformations)
+        val_dataset = CityScapes(split = 'val',transforms=eval_transformations)
     else:
         print('not supported dataset \n')
         return None

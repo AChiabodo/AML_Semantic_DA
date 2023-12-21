@@ -78,10 +78,10 @@ class GTA5(torchDataset):
         LBL_DIR_NAME = "labels"
         SUFFIX = ".png"
 
-        def __init__(self, root , labels_source="train_ids"):
+        def __init__(self, root ,split, labels_source="train_ids"):
             self.root = root
             self.labels_source = labels_source
-
+            self.split = split
             self.img_paths = self.create_imgpath_list()
             self.lbl_paths = self.create_lblpath_list()
             
@@ -94,12 +94,12 @@ class GTA5(torchDataset):
             return img_path, lbl_path
 
         def create_imgpath_list(self):
-            img_dir = os.path.join(self.root , self.IMG_DIR_NAME)
+            img_dir = os.path.join(self.root , self.IMG_DIR_NAME,self.split)
             img_path = [os.path.join(img_dir , path) for path in os.listdir(img_dir) if path.endswith(self.SUFFIX)]
             return img_path
 
         def create_lblpath_list(self):
-            lbl_dir = os.path.join(self.root,self.LBL_DIR_NAME)
+            lbl_dir = os.path.join(self.root,self.LBL_DIR_NAME,self.split)
             if self.labels_source == "cityscapes":
                 lbl_path = [os.path.join(lbl_dir,path) for path in os.listdir(lbl_dir) if path.endswith(self.SUFFIX) and path.__contains__("_labelTrainIds")]
             elif self.labels_source == "GTA5":
@@ -109,7 +109,8 @@ class GTA5(torchDataset):
     def __init__(self, 
                  root: Path,
                  labels_source: str = "GTA5", # "cityscapes" or "GTA5"
-                 transforms:Optional[ExtTransforms]=None):
+                 transforms:Optional[ExtTransforms]=None,
+                 split="train"):
         """
 
         :param root: (Path)
@@ -118,7 +119,7 @@ class GTA5(torchDataset):
         self.root = os.path.join(root , 'GTA5')
         self.labels_source = labels_source
         self.transforms = transforms
-        self.paths = self.PathPair_ImgAndLabel(root=self.root, labels_source=labels_source)
+        self.paths = self.PathPair_ImgAndLabel(root=self.root,split=split,labels_source=labels_source)
         
 
     def __len__(self):
