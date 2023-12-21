@@ -3,7 +3,7 @@
 from model.model_stages import BiSeNet
 from cityscapes import CityScapes
 from GTA5 import GTA5
-from utils import ExtCompose, ExtResize, ExtToTensor, ExtTransforms, ExtRandomHorizontalFlip
+from utils import ExtCompose, ExtResize, ExtToTensor, ExtTransforms, ExtRandomHorizontalFlip , ExtScale
 import torch
 from torch.utils.data import DataLoader
 import logging
@@ -16,6 +16,7 @@ from utils import reverse_one_hot, compute_global_accuracy, fast_hist, per_class
 from tqdm import tqdm
 import random
 import os
+from PIL import Image
 
 logger = logging.getLogger()
 
@@ -227,7 +228,7 @@ def parse_args():
                        help='loss function')
     parse.add_argument('--resume',
                        type=str,
-                       default='False',
+                       default='True',
                        help='Define if the model should be trained from scratch or from a trained model')
     parse.add_argument('--op_mode',
                           type=str,
@@ -249,7 +250,8 @@ def main():
     if args.op_mode == 'GTA5':
         args.crop_height, args.crop_width = 526 , 957
     
-    transformations = ExtCompose([ExtResize((args.crop_height, args.crop_width)), ExtToTensor()]) #ExtRandomHorizontalFlip(),
+    #transformations = ExtCompose([ExtResize((args.crop_height, args.crop_width)), ExtToTensor()]) #ExtRandomHorizontalFlip(),
+    transformations = ExtCompose([ExtScale(0.7,interpolation=Image.BICUBIC), ExtToTensor()])
     eval_transformations = ExtCompose([ExtToTensor()])
     
     if args.op_mode == 'CityScapes':
@@ -259,12 +261,12 @@ def main():
 
     elif args.op_mode == 'GTA5':
         print('training on GTA5')
-        train_dataset = GTA5(root='dataset',split="train",transforms=transformations,labels_source="CityScapes")
-        val_dataset = GTA5(root='dataset',split="eval",transforms=eval_transformations,labels_source="CityScapes")
+        train_dataset = GTA5(root='dataset',split="train",transforms=transformations,labels_source="cityscapes")
+        val_dataset = GTA5(root='dataset',split="eval",transforms=eval_transformations,labels_source="cityscapes")
 
     elif args.op_mode == 'CROSS_DOMAIN':
         print('training on CityScapes and validating on GTA5')
-        train_dataset = GTA5(root='dataset',transforms=transformations,labels_source="CityScapes")
+        train_dataset = GTA5(root='dataset',transforms=transformations,labels_source="cityscapes")
         val_dataset = CityScapes(split = 'val',transforms=eval_transformations)
     else:
         print('not supported dataset \n')
@@ -287,7 +289,7 @@ def main():
         try:
             if args.resume_model_path == '':
                 args.resume_model_path = os.path.join(args.save_model_path, 'best.pth')
-            model.load_state_dict(torch.load(args.resume_model_path)['state_dict'])
+            model.load_state_dict(torch.load(args.resume_model_path))
             print('successfully resume model from %s' % args.resume_model_path)
         except Exception as e:
             print(e)
