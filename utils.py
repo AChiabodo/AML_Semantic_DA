@@ -311,7 +311,7 @@ class ExtResize(ExtTransforms):
         self.size = size
         self.interpolation = interpolation
 
-    def __call__(self, img, lbl):
+    def __call__(self, img : Image, lbl : Image) -> (Image, Image):
 
         return F.resize(img, self.size, self.interpolation), F.resize(lbl, self.size, Image.NEAREST)
     
@@ -322,7 +322,8 @@ class ExtToTensor(ExtTransforms):
     """
     def __init__(self, target_type='uint8'):
         self.target_type = target_type
-    def __call__(self, pic, lbl):
+
+    def __call__(self, pic : Image, lbl : Image) -> (torch.Tensor, torch.Tensor):
         return torch.from_numpy( np.array( pic, dtype=np.float32).transpose(2, 0, 1) ), torch.from_numpy( np.array( lbl, dtype=self.target_type) )
 	
 
@@ -331,7 +332,7 @@ class ExtCompose(ExtTransforms):
     def __init__(self, transforms):
         self.transforms = transforms
 
-    def __call__(self, img, lbl):
+    def __call__(self, img : Image, lbl : Image) -> (Image, Image):
         for t in self.transforms:
             img, lbl = t(img, lbl)
         return img, lbl
@@ -341,7 +342,19 @@ class ExtRandomHorizontalFlip(ExtTransforms):
     def __init__(self, p=0.5):
         self.p = p
 
-    def __call__(self, img, lbl):
+    def __call__(self, img : Image, lbl : Image) -> (Image, Image):
         if random.random() < self.p:
             return F.hflip(img), F.hflip(lbl)
         return img, lbl
+
+
+class ExtScale(ExtTransforms):
+
+    def __init__(self, scale : float = 0.5, interpolation=Image.BILINEAR):
+        self.scale = scale
+        self.interpolation = interpolation
+
+    def __call__(self, img : Image, lbl : Image) -> (Image, Image):
+        assert img.size == lbl.size
+        target_size = ( int(img.size[1]*self.scale), int(img.size[0]*self.scale) ) # (H, W)
+        return F.resize(img, target_size, self.interpolation), F.resize(lbl, target_size, Image.NEAREST)
