@@ -251,8 +251,8 @@ def main():
         args.crop_height, args.crop_width = 526 , 957
     
     #transformations = ExtCompose([ExtResize((args.crop_height, args.crop_width)), ExtToTensor()]) #ExtRandomHorizontalFlip(),
-    transformations = ExtCompose([ExtScale(0.7,interpolation=Image.BICUBIC), ExtToTensor()])
-    eval_transformations = ExtCompose([ExtToTensor()])
+    transformations = ExtCompose([ExtScale(0.5,interpolation=Image.Resampling.BICUBIC), ExtToTensor()])
+    eval_transformations = ExtCompose([ExtScale(0.5,interpolation=Image.Resampling.BICUBIC), ExtToTensor()])
     
     if args.op_mode == 'CityScapes':
         print('training on CityScapes')
@@ -267,7 +267,7 @@ def main():
     elif args.op_mode == 'CROSS_DOMAIN':
         print('training on CityScapes and validating on GTA5')
         train_dataset = GTA5(root='dataset',transforms=transformations,labels_source="cityscapes")
-        val_dataset = CityScapes(split = 'val',transforms=eval_transformations)
+        val_dataset = CityScapes(split = 'val',transforms=transformations)
     else:
         print('not supported dataset \n')
         return None
