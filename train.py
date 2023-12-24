@@ -231,7 +231,7 @@ def parse_args():
                        default='crossentropy',
                        help='loss function')
     parse.add_argument('--resume',
-                       type=bool,
+                       type=str2bool,
                        default=False,
                        help='Define if the model should be trained from scratch or from a trained model')
     parse.add_argument('--dataset',
@@ -269,12 +269,12 @@ def main():
 
     elif args.dataset == 'GTA5':
         print('training on GTA5')
-        train_dataset = GTA5(root='dataset',split="train",transforms=transformations,labels_source="cityscapes")
-        val_dataset = GTA5(root='dataset',split="eval",transforms=eval_transformations,labels_source="cityscapes")
+        train_dataset = GTA5(root='dataset',split="train",transforms=transformations)
+        val_dataset = GTA5(root='dataset',split="eval",transforms=eval_transformations)
 
     elif args.dataset == 'CROSS_DOMAIN':
         print('training on GTA and validating on Cityscapes')
-        train_dataset = GTA5(root='dataset',transforms=transformations,labels_source="cityscapes")
+        train_dataset = GTA5(root='dataset',transforms=transformations)
         val_dataset = CityScapes(split = 'val',transforms=eval_transformations)
     else:
         print('not supported dataset \n')
@@ -319,7 +319,7 @@ def main():
     else:  # rmsprop
         print('not supported optimizer \n')
         return None
-    match args.mode :
+    match args.mode:
         case 'train':
             ## train loop
             train(args, model, optimizer, dataloader_train, dataloader_val, comment="_{}_{}_{}_{}".format(args.mode,args.dataset,args.batch_size,args.learning_rate))

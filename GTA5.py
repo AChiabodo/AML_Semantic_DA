@@ -133,7 +133,7 @@ class GTA5(torchDataset):
         lbl = self.read_img(lbl_path)
         
         if self.labels_source == "GTA5":
-            lbl = Image.fromarray(self.map_to_cityscapes(lbl)) 
+            lbl = Image.fromarray(np.array(self.map_to_cityscapes(lbl),dtype='uint8')) 
             #if not os.path.exists(lbl_path.split('.png')[0] + "_labelTrainIds.png"):
             #    lbl.convert('L').save(lbl_path.split('.png')[0] + "_labelTrainIds.png")
         
