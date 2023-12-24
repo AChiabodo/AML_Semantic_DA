@@ -3,7 +3,7 @@
 from model.model_stages import BiSeNet
 from cityscapes import CityScapes
 from GTA5 import GTA5
-from utils import ExtCompose, ExtResize, ExtToTensor, ExtTransforms, ExtRandomHorizontalFlip , ExtScale
+from utils import ExtCompose, ExtResize, ExtToTensor, ExtTransforms, ExtRandomHorizontalFlip , ExtScale , ExtRandomCrop
 import torch
 from torch.utils.data import DataLoader
 import logging
@@ -69,12 +69,12 @@ def val(args, model, dataloader, writer = None , epoch = None, step = None):
         return precision, miou
 
 
-def train(args, model, optimizer, dataloader_train, dataloader_val):
-    writer = SummaryWriter(comment=''.format(args.optimizer))
-
+def train(args, model, optimizer, dataloader_train, dataloader_val, comment=''):
+    #writer = SummaryWriter(comment=''.format(args.optimizer))
+    writer = SummaryWriter(comment=comment)
     scaler = amp.GradScaler()
 
-    loss_func = torch.nn.CrossEntropyLoss(ignore_index=255)
+    loss_func = torch.nn.CrossEntropyLoss(ignore_index=255) #we should check if it's the right index to ignore, is it 255 or 19?
     max_miou = 0
     step = 0
     for epoch in range(args.num_epochs):
@@ -190,9 +190,13 @@ def parse_args():
                        type=int,
                        default=1024,
                        help='Width of cropped/resized input image to modelwork')
+    # parse.add_argument('--crop_ratio',
+    #                    type=float,
+    #                    default=0.5,
+    #                    help='Ratio of cropped image (width and height) to input image')
     parse.add_argument('--batch_size',
                        type=int,
-                       default=10, #2
+                       default=4, #2
                        help='Number of images in each batch')
     parse.add_argument('--learning_rate',
                         type=float,
@@ -200,7 +204,7 @@ def parse_args():
                         help='learning rate used for train')
     parse.add_argument('--num_workers',
                        type=int,
-                       default=6, #4
+                       default=4, #4
                        help='num of workers')
     parse.add_argument('--num_classes',
                        type=int,
@@ -227,10 +231,10 @@ def parse_args():
                        default='crossentropy',
                        help='loss function')
     parse.add_argument('--resume',
-                       type=str,
-                       default='True',
+                       type=bool,
+                       default=False,
                        help='Define if the model should be trained from scratch or from a trained model')
-    parse.add_argument('--op_mode',
+    parse.add_argument('--dataset',
                           type=str,
                           default='GTA5',
                           help='CityScapes, GTA5 or CROSS_DOMAIN. Define on which dataset the model should be trained and evaluated.')
@@ -238,6 +242,10 @@ def parse_args():
                        type=str,
                        default='',
                        help='Define the path to the model that should be loaded for training. If void, the last model will be loaded.')
+    parse.add_argument('--comment',
+                       type=str,
+                       default='',
+                       help='Optional comment to add to the model name and to the log.')
     return parse.parse_args()
 
 
@@ -247,27 +255,27 @@ def main():
     ## dataset
     n_classes = args.num_classes
     # to be changed
-    if args.op_mode == 'GTA5':
+    if args.dataset == 'GTA5':
         args.crop_height, args.crop_width = 526 , 957
     
     #transformations = ExtCompose([ExtResize((args.crop_height, args.crop_width)), ExtToTensor()]) #ExtRandomHorizontalFlip(),
-    transformations = ExtCompose([ExtScale(0.5,interpolation=Image.Resampling.BICUBIC), ExtToTensor()])
+    transformations = ExtCompose([ExtScale(random.choice([0.75,1,1.25,1.5,1.75,2]),interpolation=Image.Resampling.BILINEAR),ExtRandomCrop((args.crop_height, args.crop_width)), ExtToTensor()])
     eval_transformations = ExtCompose([ExtScale(0.5,interpolation=Image.Resampling.BICUBIC), ExtToTensor()])
     
-    if args.op_mode == 'CityScapes':
+    if args.dataset == 'CityScapes':
         print('training on CityScapes')
         train_dataset = CityScapes(split = 'train',transforms=transformations)
         val_dataset = CityScapes(split='val',transforms=eval_transformations)
 
-    elif args.op_mode == 'GTA5':
+    elif args.dataset == 'GTA5':
         print('training on GTA5')
         train_dataset = GTA5(root='dataset',split="train",transforms=transformations,labels_source="cityscapes")
         val_dataset = GTA5(root='dataset',split="eval",transforms=eval_transformations,labels_source="cityscapes")
 
-    elif args.op_mode == 'CROSS_DOMAIN':
-        print('training on CityScapes and validating on GTA5')
+    elif args.dataset == 'CROSS_DOMAIN':
+        print('training on GTA and validating on Cityscapes')
         train_dataset = GTA5(root='dataset',transforms=transformations,labels_source="cityscapes")
-        val_dataset = CityScapes(split = 'val',transforms=transformations)
+        val_dataset = CityScapes(split = 'val',transforms=eval_transformations)
     else:
         print('not supported dataset \n')
         return None
@@ -285,7 +293,8 @@ def main():
                        drop_last=False)
     model = BiSeNet(backbone=args.backbone, n_classes=n_classes, pretrain_model=args.pretrain_path, use_conv_last=args.use_conv_last)
     
-    if args.resume == 'True':
+    
+    if args.resume or args.mode == 'test':
         try:
             if args.resume_model_path == '':
                 args.resume_model_path = os.path.join(args.save_model_path, 'best.pth')
@@ -313,9 +322,10 @@ def main():
     match args.mode :
         case 'train':
             ## train loop
-            train(args, model, optimizer, dataloader_train, dataloader_val)
+            train(args, model, optimizer, dataloader_train, dataloader_val, comment="_{}_{}_{}_{}".format(args.mode,args.dataset,args.batch_size,args.learning_rate))
         case 'test':
-            val(args, model, dataloader_val)
+            writer = SummaryWriter(comment="_{}_{}_{}_{}".format(args.mode,args.dataset,args.batch_size,args.learning_rate))
+            val(args, model, dataloader_val,writer=writer,epoch=0,step=0)
         case _:
             print('not supported mode \n')
             return None
