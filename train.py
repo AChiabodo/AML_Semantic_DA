@@ -246,6 +246,10 @@ def parse_args():
                        type=str,
                        default='',
                        help='Optional comment to add to the model name and to the log.')
+    parse.add_argument('--data_transformations',
+                       type=int,
+                       default=0,
+                       help='Select the data transformations to apply to the dataset. 0: no transformations, 1 : data augmentation')#1: random crop, 2: random crop and random horizontal flip, 3: random crop and random scale, 4: random crop, random horizontal flip and random scale.')
     return parse.parse_args()
 
 
@@ -258,8 +262,11 @@ def main():
     if args.dataset == 'GTA5':
         args.crop_height, args.crop_width = 526 , 957
     
-    #transformations = ExtCompose([ExtResize((args.crop_height, args.crop_width)), ExtToTensor()]) #ExtRandomHorizontalFlip(),
-    transformations = ExtCompose([ExtScale(random.choice([0.75,1,1.25,1.5,1.75,2]),interpolation=Image.Resampling.BILINEAR),ExtRandomCrop((args.crop_height, args.crop_width)), ExtToTensor()])
+    match args.data_transformations:
+        case 0:
+            transformations = ExtCompose([ExtResize((args.crop_height, args.crop_width)), ExtToTensor()]) #ExtRandomHorizontalFlip(),
+        case 1:
+            transformations = ExtCompose([ExtScale(random.choice([0.75,1,1.25,1.5,1.75,2]),interpolation=Image.Resampling.BILINEAR),ExtRandomCrop((args.crop_height, args.crop_width)), ExtToTensor()])
     eval_transformations = ExtCompose([ExtScale(0.5,interpolation=Image.Resampling.BICUBIC), ExtToTensor()])
     
     if args.dataset == 'CityScapes':
