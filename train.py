@@ -258,6 +258,7 @@ def main():
 
     ## dataset
     n_classes = args.num_classes
+    args.dataset = args.dataset.upper()
     # to be changed
     if args.dataset == 'GTA5':
         args.crop_height, args.crop_width = 526 , 957
@@ -269,7 +270,7 @@ def main():
             transformations = ExtCompose([ExtScale(random.choice([0.75,1,1.25,1.5,1.75,2]),interpolation=Image.Resampling.BILINEAR),ExtRandomCrop((args.crop_height, args.crop_width)), ExtToTensor()])
     eval_transformations = ExtCompose([ExtScale(0.5,interpolation=Image.Resampling.BICUBIC), ExtToTensor()])
     
-    if args.dataset == 'CityScapes':
+    if args.dataset == 'CITYSCAPES':
         print('training on CityScapes')
         train_dataset = CityScapes(split = 'train',transforms=transformations)
         val_dataset = CityScapes(split='val',transforms=eval_transformations)
