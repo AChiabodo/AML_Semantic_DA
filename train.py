@@ -20,7 +20,6 @@ from PIL import Image
 
 logger = logging.getLogger()
 
-
 def val(args, model, dataloader, writer = None , epoch = None, step = None):
     print('start val!')
     with torch.no_grad():
@@ -68,6 +67,85 @@ def val(args, model, dataloader, writer = None , epoch = None, step = None):
 
         return precision, miou
 
+def train_da(args, model, optimizer, source_dataloader_train, target_dataloader_train, target_dataloader_val, comment=''):
+    #writer = SummaryWriter(comment=''.format(args.optimizer))
+    writer = SummaryWriter(comment=comment)
+    scaler = amp.GradScaler()
+
+    loss_func = torch.nn.CrossEntropyLoss(ignore_index=255) #we should check if it's the right index to ignore, is it 255 or 19?
+    max_miou = 0
+    step = 0
+    for epoch in range(args.num_epochs):
+        lr = poly_lr_scheduler(optimizer, args.learning_rate, iter=epoch, max_iter=args.num_epochs)
+        model.train()
+        tq = tqdm(total=min(len(source_dataloader_train),len(target_dataloader_train)) * args.batch_size)
+        tq.set_description('epoch %d, lr %f' % (epoch, lr))
+        loss_record = []
+        image_number = random.randint(0, min(len(source_dataloader_train),len(target_dataloader_train)) - 1)
+        for i, (source_data, target_data) in enumerate(zip(source_dataloader_train,target_dataloader_train)):
+            source_data,source_label = source_data
+            target_data,_ = target_data
+            source_data = source_data.cuda()
+            source_label = source_label.long().cuda()
+            optimizer.zero_grad()
+
+            with amp.autocast():
+                output, out16, out32, dom, dom16, dom32 = model(source_data)
+                loss1 = loss_func(output, source_label.squeeze(1))
+                loss2 = loss_func(out16, source_label.squeeze(1))
+                loss3 = loss_func(out32, source_label.squeeze(1))
+                loss4 = loss_func(dom, torch.zeros(dom.shape[0],dtype=torch.long).cuda())
+                loss5 = loss_func(dom16, torch.zeros(dom16.shape[0],dtype=torch.long).cuda())
+                loss6 = loss_func(dom32, torch.zeros(dom32.shape[0],dtype=torch.long).cuda())
+                _, _, _, dom, dom16, dom32 = model(target_data)
+                loss4 += loss_func(dom, torch.ones(dom.shape[0],dtype=torch.long).cuda())
+                loss5 += loss_func(dom16, torch.ones(dom16.shape[0],dtype=torch.long).cuda())
+                loss6 += loss_func(dom32, torch.ones(dom32.shape[0],dtype=torch.long).cuda())
+                loss = loss1 + loss2 + loss3 + loss4 + loss5 + loss6
+
+                if i == image_number and epoch % 2 == 0: #saves the first image in the batch to tensorboard
+                    print('epoch {}, iter {}, loss1: {}, loss2: {}, loss3: {}'.format(epoch, i, loss1, loss2, loss3))
+                    colorized_predictions , colorized_labels = CityScapes.visualize_prediction(output, source_label)
+                    colorized_predictions_16 , _ = CityScapes.visualize_prediction(out16, source_label)
+                    colorized_predictions_32 , _ = CityScapes.visualize_prediction(out32, source_label)
+
+                    writer.add_image('epoch%d/iter%d/predicted_labels' % (epoch, i), np.array(colorized_predictions), step, dataformats='HWC')
+                    writer.add_image('epoch%d/iter%d/correct_labels' % (epoch, i), np.array(colorized_labels), step, dataformats='HWC')
+                    writer.add_image('epoch%d/iter%d/original_data' % (epoch, i), np.array(source_data[0].cpu(),dtype='uint8'), step, dataformats='CHW')
+                    writer.add_image('epoch%d/iter%d/predicted_labels_16' % (epoch, i), np.array(colorized_predictions_16), step, dataformats='HWC')
+                    writer.add_image('epoch%d/iter%d/predicted_labels_32' % (epoch, i), np.array(colorized_predictions_32), step, dataformats='HWC')
+
+            scaler.scale(loss).backward()
+            scaler.step(optimizer)
+            scaler.update()
+
+            tq.update(args.batch_size)
+            tq.set_postfix(loss='%.6f' % loss)
+            step += 1
+            writer.add_scalar('loss_step', loss, step)
+            loss_record.append(loss.item())
+        tq.close()
+        loss_train_mean = np.mean(loss_record)
+        writer.add_scalar('epoch/loss_epoch_train', float(loss_train_mean), epoch)
+        print('loss for train : %f' % (loss_train_mean))
+        if epoch % args.checkpoint_step == 0 and epoch != 0:
+            import os
+            if not os.path.isdir(args.save_model_path):
+                os.mkdir(args.save_model_path)
+            torch.save(model.module.state_dict(), os.path.join(args.save_model_path, 'latest.pth'))
+
+        if epoch % args.validation_step == 0 and epoch != 0:
+            precision, miou = val(args, model, target_dataloader_val, writer, epoch, step)
+            if miou > max_miou:
+                max_miou = miou
+                import os
+                os.makedirs(args.save_model_path, exist_ok=True)
+                torch.save(model.module.state_dict(), os.path.join(args.save_model_path, 'best.pth'))
+            writer.add_scalar('epoch/precision_val', precision, epoch)
+            writer.add_scalar('epoch/miou val', miou, epoch)
+    #final evaluation
+    val(args, model, target_dataloader_val, writer, epoch, step)
+
 
 def train(args, model, optimizer, dataloader_train, dataloader_val, comment=''):
     #writer = SummaryWriter(comment=''.format(args.optimizer))
@@ -99,9 +177,14 @@ def train(args, model, optimizer, dataloader_train, dataloader_val, comment=''):
                 if i == image_number and epoch % 2 == 0: #saves the first image in the batch to tensorboard
                     print('epoch {}, iter {}, loss1: {}, loss2: {}, loss3: {}'.format(epoch, i, loss1, loss2, loss3))
                     colorized_predictions , colorized_labels = CityScapes.visualize_prediction(output, label)
+                    colorized_predictions_16 , _ = CityScapes.visualize_prediction(out16, label)
+                    colorized_predictions_32 , _ = CityScapes.visualize_prediction(out32, label)
+
                     writer.add_image('epoch%d/iter%d/predicted_labels' % (epoch, i), np.array(colorized_predictions), step, dataformats='HWC')
                     writer.add_image('epoch%d/iter%d/correct_labels' % (epoch, i), np.array(colorized_labels), step, dataformats='HWC')
                     writer.add_image('epoch%d/iter%d/original_data' % (epoch, i), np.array(data[0].cpu(),dtype='uint8'), step, dataformats='CHW')
+                    writer.add_image('epoch%d/iter%d/predicted_labels_16' % (epoch, i), np.array(colorized_predictions_16), step, dataformats='HWC')
+                    writer.add_image('epoch%d/iter%d/predicted_labels_32' % (epoch, i), np.array(colorized_predictions_32), step, dataformats='HWC')
 
             scaler.scale(loss).backward()
             scaler.step(optimizer)
@@ -252,6 +335,7 @@ def parse_args():
                        help='Select the data transformations to apply to the dataset. 0: no transformations, 1 : data augmentation')#1: random crop, 2: random crop and random horizontal flip, 3: random crop and random scale, 4: random crop, random horizontal flip and random scale.')
     return parse.parse_args()
 
+# --dataset GTA5 --data_transformations 0 --batch_size 10 --learning_rate 0.01 --num_epochs 50 --save_model_path trained_models\test_print_features --resume False --comment test_print_features--mode train
 
 def main():
     args = parse_args()
@@ -287,7 +371,13 @@ def main():
         print('not supported dataset \n')
         return None
     
-    dataloader_train = DataLoader(train_dataset,
+    source_dataloader_train = DataLoader(train_dataset,
+                    batch_size=args.batch_size,
+                    shuffle=False,
+                    num_workers=args.num_workers,
+                    pin_memory=False,
+                    drop_last=True)
+    target_dataloader_train = DataLoader(val_dataset,
                     batch_size=args.batch_size,
                     shuffle=False,
                     num_workers=args.num_workers,
@@ -329,7 +419,9 @@ def main():
     match args.mode:
         case 'train':
             ## train loop
-            train(args, model, optimizer, dataloader_train, dataloader_val, comment="_{}_{}_{}_{}".format(args.mode,args.dataset,args.batch_size,args.learning_rate))
+            train(args, model, optimizer, source_dataloader_train, dataloader_val, comment="_{}_{}_{}_{}".format(args.mode,args.dataset,args.batch_size,args.learning_rate))
+        case 'train_da':
+            train_da(args, model, optimizer, source_dataloader_train, target_dataloader_train, dataloader_val, comment="_{}_{}_{}_{}".format(args.mode,args.dataset,args.batch_size,args.learning_rate))
         case 'test':
             writer = SummaryWriter(comment="_{}_{}_{}_{}".format(args.mode,args.dataset,args.batch_size,args.learning_rate))
             val(args, model, dataloader_val,writer=writer,epoch=0,step=0)
