@@ -39,23 +39,55 @@ class ConvBNReLU(nn.Module):
                 if not ly.bias is None: nn.init.constant_(ly.bias, 0)
 
 class BiSeNetDiscriminator(nn.Module):
+    class DiscriminatorConv(nn.Module):
+        def __init__(self, *args, **kwargs) -> None:
+            super().__init__()
+            self.conv = nn.Sequential(
+                nn.Conv2d(*args, **kwargs),
+                nn.LeakyReLU(0.2, inplace=True)
+            )
+        def forward(self, x):
+            return self.conv(x)
+        
+
     def __init__(self, in_chan, alpha = 0.1, *args, **kwargs):
         super(BiSeNetDiscriminator, self).__init__()
+        #print(in_chan)
         self.alpha = alpha
+        self.discr_1 = self.DiscriminatorConv(in_chan, 64, kernel_size=4, stride=2, padding=1)
+        self.discr_2 = self.DiscriminatorConv(64, 128, kernel_size=4, stride=2, padding=1)
+        self.discr_3 = self.DiscriminatorConv(128, 256, kernel_size=4, stride=2, padding=1)
+        self.discr_4 = self.DiscriminatorConv(256, 512, kernel_size=4, stride=2, padding=1)
+        self.discr_5 = self.DiscriminatorConv(512, 1, kernel_size=4, stride=2, padding=1)
+        self.up = nn.Upsample(scale_factor=32, mode='bilinear')
         self.discriminator = nn.Sequential(
-            nn.Linear(120, 100),
-            nn.BatchNorm1d(100),
-            nn.ReLU(True),
-            nn.Linear(100, 2),
-            nn.LogSoftmax(dim=1)
+            nn.Conv2d(in_chan, 64, kernel_size=4, stride=2),
+            nn.LeakyReLU(0.2, inplace=True),
+            
+            nn.Conv2d(64, 128, kernel_size=4, stride=2),
+            nn.LeakyReLU(0.2, inplace=True),
+            
+            nn.Conv2d(128, 256, kernel_size=4, stride=2),
+            nn.LeakyReLU(0.2, inplace=True),
+            
+            nn.Conv2d(256, 512, kernel_size=4, stride=2),
+            nn.LeakyReLU(0.2, inplace=True),
+            nn.Conv2d(512, 1, kernel_size=4, stride=2),
+            nn.Upsample(scale_factor=32, mode='bilinear')
             )
     def forward(self, x):
-        x = x.view(x.size(0), -1)
-        print(x.shape)
-        reverse_feature = ReverseLayer.apply(x, self.alpha)
-        print(reverse_feature.shape)
-        x = self.discriminator(reverse_feature)
-        print(x.shape)
+        #x = x.view(x.size(0), -1)
+        #print(x.shape)
+        x = ReverseLayer.apply(x, self.alpha)
+        x = self.discr_1(x)
+        x = self.discr_2(x)
+        x = self.discr_3(x)
+        x = self.discr_4(x)
+        x = self.discr_5(x)
+        x = self.up(x)
+        #print(reverse_feature.shape)
+        #x = self.discriminator(reverse_feature)
+        #print(x.shape)
         return x
 
 class BiSeNetOutput(nn.Module):
@@ -245,9 +277,9 @@ class BiSeNet(nn.Module):
         self.conv_out = BiSeNetOutput(256, 256, n_classes)
         self.conv_out16 = BiSeNetOutput(conv_out_inplanes, 64, n_classes)
         self.conv_out32 = BiSeNetOutput(conv_out_inplanes, 64, n_classes)
-        self.discr_out = BiSeNetDiscriminator(inplane, 256, 2)
-        self.discr_out16 = BiSeNetDiscriminator(conv_out_inplanes, 64, 2)
-        self.discr_out32 = BiSeNetDiscriminator(conv_out_inplanes, 64, 2)
+        self.discr_out = BiSeNetDiscriminator(n_classes, 256, 2)
+        self.discr_out16 = BiSeNetDiscriminator(n_classes, 64, 2)
+        self.discr_out32 = BiSeNetDiscriminator(n_classes, 64, 2)
 
         self.init_weight()
 
@@ -261,15 +293,15 @@ class BiSeNet(nn.Module):
         feat_out = self.conv_out(feat_fuse)
         feat_out16 = self.conv_out16(feat_cp8)
         feat_out32 = self.conv_out32(feat_cp16)
-
+        if self.training:
+            domain_out = self.discr_out(feat_out)
+            domain_out16 = self.discr_out16(feat_out16)
+            domain_out32 = self.discr_out32(feat_out32)
         feat_out = F.interpolate(feat_out, (H, W), mode='bilinear', align_corners=True)
         feat_out16 = F.interpolate(feat_out16, (H, W), mode='bilinear', align_corners=True)
         feat_out32 = F.interpolate(feat_out32, (H, W), mode='bilinear', align_corners=True)
 
         if self.training:
-            domain_out = self.discr_out(feat_fuse)
-            domain_out16 = self.discr_out16(feat_cp8)
-            domain_out32 = self.discr_out32(feat_cp16)
             return feat_out, feat_out16, feat_out32 , domain_out, domain_out16, domain_out32
         else:
             return feat_out, feat_out16, feat_out32

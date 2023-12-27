@@ -94,13 +94,13 @@ def train_da(args, model, optimizer, source_dataloader_train, target_dataloader_
                 loss1 = loss_func(output, source_label.squeeze(1))
                 loss2 = loss_func(out16, source_label.squeeze(1))
                 loss3 = loss_func(out32, source_label.squeeze(1))
-                loss4 = loss_func(dom, torch.zeros(dom.shape[0],dtype=torch.long).cuda())
-                loss5 = loss_func(dom16, torch.zeros(dom16.shape[0],dtype=torch.long).cuda())
-                loss6 = loss_func(dom32, torch.zeros(dom32.shape[0],dtype=torch.long).cuda())
+                loss4 = loss_func(dom, torch.zeros(dom.shape,dtype=torch.long).cuda().squeeze(1))
+                loss5 = loss_func(dom16, torch.zeros(dom16.shape,dtype=torch.long).cuda().squeeze(1))
+                loss6 = loss_func(dom32, torch.zeros(dom32.shape,dtype=torch.long).cuda().squeeze(1))
                 _, _, _, dom, dom16, dom32 = model(target_data)
-                loss4 += loss_func(dom, torch.ones(dom.shape[0],dtype=torch.long).cuda())
-                loss5 += loss_func(dom16, torch.ones(dom16.shape[0],dtype=torch.long).cuda())
-                loss6 += loss_func(dom32, torch.ones(dom32.shape[0],dtype=torch.long).cuda())
+                loss4 += loss_func(dom, torch.zeros(dom.shape,dtype=torch.long).cuda().squeeze(1))
+                loss5 += loss_func(dom16, torch.zeros(dom16.shape,dtype=torch.long).cuda().squeeze(1))
+                loss6 += loss_func(dom32, torch.zeros(dom32.shape,dtype=torch.long).cuda().squeeze(1))
                 loss = loss1 + loss2 + loss3 + loss4 + loss5 + loss6
 
                 if i == image_number and epoch % 2 == 0: #saves the first image in the batch to tensorboard
@@ -168,7 +168,7 @@ def train(args, model, optimizer, dataloader_train, dataloader_val, comment=''):
             optimizer.zero_grad()
 
             with amp.autocast():
-                output, out16, out32 = model(data)
+                output, out16, out32, _ = model(data)
                 loss1 = loss_func(output, label.squeeze(1))
                 loss2 = loss_func(out16, label.squeeze(1))
                 loss3 = loss_func(out32, label.squeeze(1))
@@ -232,7 +232,7 @@ def parse_args():
     parse.add_argument('--mode',
                        dest='mode',
                        type=str,
-                       default='train',
+                       default='train_da',
     )
 
     parse.add_argument('--backbone',
@@ -319,7 +319,7 @@ def parse_args():
                        help='Define if the model should be trained from scratch or from a trained model')
     parse.add_argument('--dataset',
                           type=str,
-                          default='GTA5',
+                          default='CROSS_DOMAIN',
                           help='CityScapes, GTA5 or CROSS_DOMAIN. Define on which dataset the model should be trained and evaluated.')
     parse.add_argument('--resume_model_path',
                        type=str,
@@ -348,7 +348,7 @@ def main():
     
     match args.data_transformations:
         case 0:
-            transformations = ExtCompose([ExtResize((args.crop_height, args.crop_width)), ExtToTensor()]) #ExtRandomHorizontalFlip(),
+            transformations = ExtCompose([ExtScale(0.5,interpolation=Image.Resampling.BILINEAR), ExtToTensor()]) #ExtRandomHorizontalFlip(),
         case 1:
             transformations = ExtCompose([ExtScale(random.choice([0.75,1,1.25,1.5,1.75,2]),interpolation=Image.Resampling.BILINEAR),ExtRandomCrop((args.crop_height, args.crop_width)), ExtToTensor()])
     eval_transformations = ExtCompose([ExtScale(0.5,interpolation=Image.Resampling.BICUBIC), ExtToTensor()])
@@ -366,6 +366,7 @@ def main():
     elif args.dataset == 'CROSS_DOMAIN':
         print('training on GTA and validating on Cityscapes')
         train_dataset = GTA5(root='dataset',transforms=transformations)
+        target_dataset_train = CityScapes(split = 'train',transforms=transformations)
         val_dataset = CityScapes(split = 'val',transforms=eval_transformations)
     else:
         print('not supported dataset \n')
@@ -377,7 +378,8 @@ def main():
                     num_workers=args.num_workers,
                     pin_memory=False,
                     drop_last=True)
-    target_dataloader_train = DataLoader(val_dataset,
+    if args.dataset == 'CROSS_DOMAIN':
+        target_dataloader_train = DataLoader(target_dataset_train,
                     batch_size=args.batch_size,
                     shuffle=False,
                     num_workers=args.num_workers,
