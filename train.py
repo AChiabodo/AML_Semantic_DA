@@ -1,6 +1,6 @@
 #!/usr/bin/python
 # -*- encoding: utf-8 -*-
-from model.model_stages import BiSeNet
+from model.model_stages import BiSeNet, BiSeNetDiscriminator
 from cityscapes import CityScapes
 from GTA5 import GTA5
 from utils import ExtCompose, ExtResize, ExtToTensor, ExtTransforms, ExtRandomHorizontalFlip , ExtScale , ExtRandomCrop
@@ -71,15 +71,22 @@ def train_da(args, model, optimizer, source_dataloader_train, target_dataloader_
     #writer = SummaryWriter(comment=''.format(args.optimizer))
     writer = SummaryWriter(comment=comment)
     scaler = amp.GradScaler()
+    
+    discr = BiSeNetDiscriminator(num_classes=args.num_classes).cuda()
+    discr_optim = torch.optim.Adam(discr.parameters(), lr=0.0002, betas=(0.9, 0.99))
 
-    loss_func = torch.nn.CrossEntropyLoss(ignore_index=255) #we should check if it's the right index to ignore, is it 255 or 19?
+    loss_func = torch.nn.CrossEntropyLoss(ignore_index=255)
+    discr_loss_func = torch.nn.MSELoss()
+
     max_miou = 0
     step = 0
     for epoch in range(args.num_epochs):
         lr = poly_lr_scheduler(optimizer, args.learning_rate, iter=epoch, max_iter=args.num_epochs)
+        discr_lr = poly_lr_scheduler(discr_optim, 0.0002, iter=epoch, max_iter=args.num_epochs)
+
         model.train()
         tq = tqdm(total=min(len(source_dataloader_train),len(target_dataloader_train)) * args.batch_size)
-        tq.set_description('epoch %d, lr %f' % (epoch, lr))
+        tq.set_description('epoch %d,G lr %f, D lr %f' % (epoch, lr, discr_lr))
         loss_record = []
         image_number = random.randint(0, min(len(source_dataloader_train),len(target_dataloader_train)) - 1)
         for i, (source_data, target_data) in enumerate(zip(source_dataloader_train,target_dataloader_train)):
@@ -88,35 +95,68 @@ def train_da(args, model, optimizer, source_dataloader_train, target_dataloader_
             source_data = source_data.cuda()
             source_label = source_label.long().cuda()
             optimizer.zero_grad()
-
+            discr_optim.zero_grad()
+            
+            ##############################################
+            # Train Generator
+            ##############################################            
             with amp.autocast():
-                output, out16, out32, dom, dom16, dom32 = model(source_data)
-                loss1 = loss_func(output, source_label.squeeze(1))
-                loss2 = loss_func(out16, source_label.squeeze(1))
-                loss3 = loss_func(out32, source_label.squeeze(1))
-                loss4 = loss_func(dom, torch.zeros(dom.shape,dtype=torch.long).cuda().squeeze(1))
-                loss5 = loss_func(dom16, torch.zeros(dom16.shape,dtype=torch.long).cuda().squeeze(1))
-                loss6 = loss_func(dom32, torch.zeros(dom32.shape,dtype=torch.long).cuda().squeeze(1))
-                _, _, _, dom, dom16, dom32 = model(target_data)
-                loss4 += loss_func(dom, torch.zeros(dom.shape,dtype=torch.long).cuda().squeeze(1))
-                loss5 += loss_func(dom16, torch.zeros(dom16.shape,dtype=torch.long).cuda().squeeze(1))
-                loss6 += loss_func(dom32, torch.zeros(dom32.shape,dtype=torch.long).cuda().squeeze(1))
-                loss = loss1 + loss2 + loss3 + loss4 + loss5 + loss6
+                discr.train_params(False)
+                s_output, s_out16, s_out32 = model(source_data)
+                #dom, dom16, dom32 = discr(s_output) , discr(s_out16) , discr(s_out32) # .detach() ?
+                
+                loss1 = loss_func(s_output, source_label.squeeze(1))
+                loss2 = loss_func(s_out16, source_label.squeeze(1))
+                loss3 = loss_func(s_out32, source_label.squeeze(1))
+                #loss4 = discr_loss_func(dom, torch.ones(dom.shape,dtype=torch.float).cuda())
+                #loss5 = discr_loss_func(dom16, torch.ones(dom.shape,dtype=torch.float).cuda())
+                #loss4 = discr_loss_func(dom32, torch.ones(dom.shape,dtype=torch.float).cuda())
+                t_output, t_out16, t_out32 = model(target_data)
+                #dom, dom16, dom32 = discr(t_output) , discr(t_out16) , discr(t_out32)
+                dom = discr(t_output)#.squeeze(1)
+                #loss = loss1 + loss2 + loss3 #+ loss4 + loss5 + loss6
+                loss4 = discr_loss_func(dom, torch.zeros(dom.shape,dtype=torch.float).cuda())
+                #loss5 = discr_loss_func(dom16, torch.zeros(dom16.shape,dtype=torch.float).cuda().squeeze(1))
+                #loss6 = discr_loss_func(dom32, torch.zeros(dom32.shape,dtype=torch.float).cuda().squeeze(1))
+                loss = loss1 + loss2 + loss3 + 0.1 * loss4 #+ loss5 + loss6
 
                 if i == image_number and epoch % 2 == 0: #saves the first image in the batch to tensorboard
-                    print('epoch {}, iter {}, loss1: {}, loss2: {}, loss3: {}'.format(epoch, i, loss1, loss2, loss3))
-                    colorized_predictions , colorized_labels = CityScapes.visualize_prediction(output, source_label)
-                    colorized_predictions_16 , _ = CityScapes.visualize_prediction(out16, source_label)
-                    colorized_predictions_32 , _ = CityScapes.visualize_prediction(out32, source_label)
+                    print('epoch {}, iter {}, loss1: {}, loss2: {}, loss3: {}, loss4: {}'.format(epoch, i, loss1, loss2, loss3, loss4))
+                    colorized_predictions , colorized_labels = CityScapes.visualize_prediction(s_output, source_label)
+                    colorized_predictions_16 , _ = CityScapes.visualize_prediction(s_out16, source_label)
+                    colorized_predictions_32 , _ = CityScapes.visualize_prediction(s_out32, source_label)
 
                     writer.add_image('epoch%d/iter%d/predicted_labels' % (epoch, i), np.array(colorized_predictions), step, dataformats='HWC')
                     writer.add_image('epoch%d/iter%d/correct_labels' % (epoch, i), np.array(colorized_labels), step, dataformats='HWC')
                     writer.add_image('epoch%d/iter%d/original_data' % (epoch, i), np.array(source_data[0].cpu(),dtype='uint8'), step, dataformats='CHW')
                     writer.add_image('epoch%d/iter%d/predicted_labels_16' % (epoch, i), np.array(colorized_predictions_16), step, dataformats='HWC')
                     writer.add_image('epoch%d/iter%d/predicted_labels_32' % (epoch, i), np.array(colorized_predictions_32), step, dataformats='HWC')
-
+                
             scaler.scale(loss).backward()
+
+            with amp.autocast():
+                ##############################################
+                # Train Discriminator
+                ##############################################
+                discr.train_params(True)
+                discr_optim.zero_grad() # is this needed?
+                #dom, dom16, dom32 = discr(s_output.detach()) , discr(s_out16.detach()) , discr(s_out32.detach())
+                dom = discr(s_output.detach())#.squeeze(1)
+                d_loss7 = discr_loss_func(dom, torch.ones(dom.shape,dtype=torch.float).cuda())
+                #d_loss8 = discr_loss_func(dom16, torch.ones(dom16.shape,dtype=torch.float).cuda().squeeze(1))
+                #d_loss9 = discr_loss_func(dom32, torch.ones(dom32.shape,dtype=torch.float).cuda().squeeze(1))
+
+                #dom, dom16, dom32 = discr(t_output.detach()) , discr(t_out16.detach()) , discr(t_out32.detach())
+                dom = discr(t_output.detach())#.squeeze(1)
+                d_loss7 += discr_loss_func(dom, torch.zeros(dom.shape,dtype=torch.float).cuda())
+                #d_loss8 += discr_loss_func(dom16, torch.zeros(dom16.shape,dtype=torch.float).cuda().squeeze(1))
+                #d_loss9 += discr_loss_func(dom32, torch.zeros(dom32.shape,dtype=torch.float).cuda().squeeze(1))
+                d_loss = d_loss7 #+ d_loss8 + d_loss9
+
+            #scaler.scale(loss).backward()
+            scaler.scale(d_loss).backward()
             scaler.step(optimizer)
+            scaler.step(discr_optim)
             scaler.update()
 
             tq.update(args.batch_size)
@@ -327,7 +367,7 @@ def parse_args():
                        help='Define the path to the model that should be loaded for training. If void, the last model will be loaded.')
     parse.add_argument('--comment',
                        type=str,
-                       default='',
+                       default='test',
                        help='Optional comment to add to the model name and to the log.')
     parse.add_argument('--data_transformations',
                        type=int,
@@ -349,9 +389,11 @@ def main():
     match args.data_transformations:
         case 0:
             transformations = ExtCompose([ExtScale(0.5,interpolation=Image.Resampling.BILINEAR), ExtToTensor()]) #ExtRandomHorizontalFlip(),
+            target_transformations = ExtCompose([ExtScale(0.5,interpolation=Image.Resampling.BILINEAR), ExtToTensor()])
         case 1:
             transformations = ExtCompose([ExtScale(random.choice([0.75,1,1.25,1.5,1.75,2]),interpolation=Image.Resampling.BILINEAR),ExtRandomCrop((args.crop_height, args.crop_width)), ExtToTensor()])
-    eval_transformations = ExtCompose([ExtScale(0.5,interpolation=Image.Resampling.BICUBIC), ExtToTensor()])
+            target_transformations = ExtCompose([ExtScale(random.choice([0.75,1,1.25,1.5,1.75,2]),interpolation=Image.Resampling.BILINEAR),ExtRandomCrop((512, 1024)), ExtToTensor()])
+    eval_transformations = ExtCompose([ExtScale(0.5,interpolation=Image.Resampling.BILINEAR), ExtToTensor()])
     
     if args.dataset == 'CityScapes':
         print('training on CityScapes')
@@ -418,14 +460,18 @@ def main():
     else:  # rmsprop
         print('not supported optimizer \n')
         return None
+    
+    if args.comment == '':
+        args.comment = "_{}_{}_{}_{}".format(args.mode,args.dataset,args.batch_size,args.learning_rate)
+
     match args.mode:
         case 'train':
             ## train loop
             train(args, model, optimizer, source_dataloader_train, dataloader_val, comment="_{}_{}_{}_{}".format(args.mode,args.dataset,args.batch_size,args.learning_rate))
         case 'train_da':
-            train_da(args, model, optimizer, source_dataloader_train, target_dataloader_train, dataloader_val, comment="_{}_{}_{}_{}".format(args.mode,args.dataset,args.batch_size,args.learning_rate))
+            train_da(args, model, optimizer, source_dataloader_train, target_dataloader_train, dataloader_val, comment=args.comment)
         case 'test':
-            writer = SummaryWriter(comment="_{}_{}_{}_{}".format(args.mode,args.dataset,args.batch_size,args.learning_rate))
+            writer = SummaryWriter(comment=args.comment)
             val(args, model, dataloader_val,writer=writer,epoch=0,step=0)
         case _:
             print('not supported mode \n')
