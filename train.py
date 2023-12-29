@@ -71,57 +71,90 @@ def train_da(args, model, optimizer, source_dataloader_train, target_dataloader_
     #writer = SummaryWriter(comment=''.format(args.optimizer))
     writer = SummaryWriter(comment=comment)
     scaler = amp.GradScaler()
-    
-    discr = BiSeNetDiscriminator(num_classes=args.num_classes).cuda()
-    discr_optim = torch.optim.Adam(discr.parameters(), lr=0.0002, betas=(0.9, 0.99))
+    d_lr = 1e-4
+    max_lam = 0.01
+    discr = torch.nn.DataParallel(BiSeNetDiscriminator(num_classes=args.num_classes)).cuda()
+    discr_optim = torch.optim.Adam(discr.parameters(), lr=d_lr, betas=(0.9, 0.99))
 
     loss_func = torch.nn.CrossEntropyLoss(ignore_index=255)
-    discr_loss_func = torch.nn.MSELoss()
-
+    #discr_loss_func = torch.nn.MSELoss()
+    discr_loss_func = torch.nn.BCEWithLogitsLoss()
+    
     max_miou = 0
     step = 0
     for epoch in range(args.num_epochs):
         lr = poly_lr_scheduler(optimizer, args.learning_rate, iter=epoch, max_iter=args.num_epochs)
-        discr_lr = poly_lr_scheduler(discr_optim, 0.0002, iter=epoch, max_iter=args.num_epochs)
-
+        discr_lr = poly_lr_scheduler(discr_optim, d_lr, iter=epoch, max_iter=args.num_epochs)
+        #lam = max_lam * ((epoch) / args.num_epochs) ** 0.9
+        #lam = max_lam if epoch > 10 else max_lam * ( 1 + ((epoch - 10) / (args.num_epochs)))
+        lam = (max_lam) * (1 + np.sin(np.pi / 2 * epoch / 50)) / 2
         model.train()
         tq = tqdm(total=min(len(source_dataloader_train),len(target_dataloader_train)) * args.batch_size)
-        tq.set_description('epoch %d,G lr %f, D lr %f' % (epoch, lr, discr_lr))
+        tq.set_description('epoch %d,G-lr %f, D-lr %f, lam %f' % (epoch, lr, discr_lr, lam))
         loss_record = []
+        loss_discr_record = []
         image_number = random.randint(0, min(len(source_dataloader_train),len(target_dataloader_train)) - 1)
+
+        softmax_func = torch.nn.functional.softmax
+        dsource_labels , dtarget_labels = torch.ones , torch.zeros
+
         for i, (source_data, target_data) in enumerate(zip(source_dataloader_train,target_dataloader_train)):
             source_data,source_label = source_data
             target_data,_ = target_data
             source_data = source_data.cuda()
             source_label = source_label.long().cuda()
+            target_data = target_data.cuda()
             optimizer.zero_grad()
             discr_optim.zero_grad()
             
             ##############################################
             # Train Generator
             ##############################################            
+            discr.module.train_params(False)
+
             with amp.autocast():
-                discr.train_params(False)
+                #train source data
                 s_output, s_out16, s_out32 = model(source_data)
-                #dom, dom16, dom32 = discr(s_output) , discr(s_out16) , discr(s_out32) # .detach() ?
                 
+                ### Train Generator with source data
                 loss1 = loss_func(s_output, source_label.squeeze(1))
                 loss2 = loss_func(s_out16, source_label.squeeze(1))
                 loss3 = loss_func(s_out32, source_label.squeeze(1))
-                #loss4 = discr_loss_func(dom, torch.ones(dom.shape,dtype=torch.float).cuda())
-                #loss5 = discr_loss_func(dom16, torch.ones(dom.shape,dtype=torch.float).cuda())
-                #loss4 = discr_loss_func(dom32, torch.ones(dom.shape,dtype=torch.float).cuda())
+                
+                loss = loss1 + loss2 + loss3
+            scaler.scale(loss).backward()
+            
+            with amp.autocast():
+                ### Fool the discriminator by using source labels on target data
                 t_output, t_out16, t_out32 = model(target_data)
-                #dom, dom16, dom32 = discr(t_output) , discr(t_out16) , discr(t_out32)
-                dom = discr(t_output)#.squeeze(1)
-                #loss = loss1 + loss2 + loss3 #+ loss4 + loss5 + loss6
-                loss4 = discr_loss_func(dom, torch.zeros(dom.shape,dtype=torch.float).cuda())
-                #loss5 = discr_loss_func(dom16, torch.zeros(dom16.shape,dtype=torch.float).cuda().squeeze(1))
-                #loss6 = discr_loss_func(dom32, torch.zeros(dom32.shape,dtype=torch.float).cuda().squeeze(1))
-                loss = loss1 + loss2 + loss3 + 0.1 * loss4 #+ loss5 + loss6
+                dom = discr(softmax_func(t_output, dim=1))
+                
+                td_loss_fooled = discr_loss_func(dom, dsource_labels(dom.shape,dtype=torch.float).cuda())
+                
+                d_loss = td_loss_fooled * lam
+            scaler.scale(d_loss).backward()
 
-                if i == image_number and epoch % 2 == 0: #saves the first image in the batch to tensorboard
-                    print('epoch {}, iter {}, loss1: {}, loss2: {}, loss3: {}, loss4: {}'.format(epoch, i, loss1, loss2, loss3, loss4))
+            ##############################################
+            # Train Discriminator
+            ##############################################
+            discr.module.train_params(True)
+
+            s_output = s_output.detach()
+            t_output = t_output.detach()
+            with amp.autocast():
+                dom = discr(softmax_func(s_output, dim=1))
+                sd_loss = discr_loss_func(dom, dsource_labels(dom.shape,dtype=torch.float).cuda()) / 2
+                
+            scaler.scale(sd_loss).backward()    
+
+            with amp.autocast():
+                dom = discr(softmax_func(t_output , dim=1))
+                td_loss = discr_loss_func(dom, dtarget_labels(dom.shape,dtype=torch.float).cuda()) / 2
+                
+            scaler.scale(td_loss).backward()
+
+            if i == image_number and epoch % 2 == 0: #saves the first image in the batch to tensorboard
+                    print('epoch {}, iter {}, loss1: {}, loss2: {}, loss3: {}, d_loss_fool: {}, d_loss: {}'.format(epoch, i, loss1, loss2, loss3, d_loss, sd_loss+td_loss))
                     colorized_predictions , colorized_labels = CityScapes.visualize_prediction(s_output, source_label)
                     colorized_predictions_16 , _ = CityScapes.visualize_prediction(s_out16, source_label)
                     colorized_predictions_32 , _ = CityScapes.visualize_prediction(s_out32, source_label)
@@ -131,42 +164,24 @@ def train_da(args, model, optimizer, source_dataloader_train, target_dataloader_
                     writer.add_image('epoch%d/iter%d/original_data' % (epoch, i), np.array(source_data[0].cpu(),dtype='uint8'), step, dataformats='CHW')
                     writer.add_image('epoch%d/iter%d/predicted_labels_16' % (epoch, i), np.array(colorized_predictions_16), step, dataformats='HWC')
                     writer.add_image('epoch%d/iter%d/predicted_labels_32' % (epoch, i), np.array(colorized_predictions_32), step, dataformats='HWC')
-                
-            scaler.scale(loss).backward()
 
-            with amp.autocast():
-                ##############################################
-                # Train Discriminator
-                ##############################################
-                discr.train_params(True)
-                discr_optim.zero_grad() # is this needed?
-                #dom, dom16, dom32 = discr(s_output.detach()) , discr(s_out16.detach()) , discr(s_out32.detach())
-                dom = discr(s_output.detach())#.squeeze(1)
-                d_loss7 = discr_loss_func(dom, torch.ones(dom.shape,dtype=torch.float).cuda())
-                #d_loss8 = discr_loss_func(dom16, torch.ones(dom16.shape,dtype=torch.float).cuda().squeeze(1))
-                #d_loss9 = discr_loss_func(dom32, torch.ones(dom32.shape,dtype=torch.float).cuda().squeeze(1))
-
-                #dom, dom16, dom32 = discr(t_output.detach()) , discr(t_out16.detach()) , discr(t_out32.detach())
-                dom = discr(t_output.detach())#.squeeze(1)
-                d_loss7 += discr_loss_func(dom, torch.zeros(dom.shape,dtype=torch.float).cuda())
-                #d_loss8 += discr_loss_func(dom16, torch.zeros(dom16.shape,dtype=torch.float).cuda().squeeze(1))
-                #d_loss9 += discr_loss_func(dom32, torch.zeros(dom32.shape,dtype=torch.float).cuda().squeeze(1))
-                d_loss = d_loss7 #+ d_loss8 + d_loss9
-
-            #scaler.scale(loss).backward()
-            scaler.scale(d_loss).backward()
             scaler.step(optimizer)
             scaler.step(discr_optim)
             scaler.update()
 
+
+            loss = loss + d_loss
+            d_loss = sd_loss + td_loss
             tq.update(args.batch_size)
             tq.set_postfix(loss='%.6f' % loss)
             step += 1
-            writer.add_scalar('loss_step', loss, step)
+            #writer.add_scalar('loss_step', loss, step)
             loss_record.append(loss.item())
+            loss_discr_record.append(d_loss.item())
         tq.close()
         loss_train_mean = np.mean(loss_record)
         writer.add_scalar('epoch/loss_epoch_train', float(loss_train_mean), epoch)
+        writer.add_scalar('epoch/loss_epoch_discr', float(d_loss), epoch)
         print('loss for train : %f' % (loss_train_mean))
         if epoch % args.checkpoint_step == 0 and epoch != 0:
             import os
@@ -184,7 +199,14 @@ def train_da(args, model, optimizer, source_dataloader_train, target_dataloader_
             writer.add_scalar('epoch/precision_val', precision, epoch)
             writer.add_scalar('epoch/miou val', miou, epoch)
     #final evaluation
-    val(args, model, target_dataloader_val, writer, epoch, step)
+    precision, miou = val(args, model, target_dataloader_val, writer, epoch, step)
+    if miou > max_miou:
+        max_miou = miou
+        import os
+        os.makedirs(args.save_model_path, exist_ok=True)
+        torch.save(model.module.state_dict(), os.path.join(args.save_model_path, 'best.pth'))
+    writer.add_scalar('epoch/precision_val', precision, epoch)
+    writer.add_scalar('epoch/miou val', miou, epoch)
 
 
 def train(args, model, optimizer, dataloader_train, dataloader_val, comment=''):
@@ -240,7 +262,6 @@ def train(args, model, optimizer, dataloader_train, dataloader_val, comment=''):
         writer.add_scalar('epoch/loss_epoch_train', float(loss_train_mean), epoch)
         print('loss for train : %f' % (loss_train_mean))
         if epoch % args.checkpoint_step == 0 and epoch != 0:
-            import os
             if not os.path.isdir(args.save_model_path):
                 os.mkdir(args.save_model_path)
             torch.save(model.module.state_dict(), os.path.join(args.save_model_path, 'latest.pth'))
@@ -249,13 +270,19 @@ def train(args, model, optimizer, dataloader_train, dataloader_val, comment=''):
             precision, miou = val(args, model, dataloader_val, writer, epoch, step)
             if miou > max_miou:
                 max_miou = miou
-                import os
                 os.makedirs(args.save_model_path, exist_ok=True)
                 torch.save(model.module.state_dict(), os.path.join(args.save_model_path, 'best.pth'))
             writer.add_scalar('epoch/precision_val', precision, epoch)
             writer.add_scalar('epoch/miou val', miou, epoch)
     #final evaluation
-    val(args, model, dataloader_val, writer, epoch, step)
+    precision, miou = val(args, model, dataloader_val, writer, epoch, step)
+    if miou > max_miou:
+        max_miou = miou
+        import os
+        os.makedirs(args.save_model_path, exist_ok=True)
+        torch.save(model.module.state_dict(), os.path.join(args.save_model_path, 'best.pth'))
+    writer.add_scalar('epoch/precision_val', precision, epoch)
+    writer.add_scalar('epoch/miou val', miou, epoch)
 
 def str2bool(v):
     if v.lower() in ('yes', 'true', 't', 'y', '1'):
