@@ -287,7 +287,7 @@ class BiSeNet(nn.Module):
         #     domain_out16 = self.discr_out16(feat_out16)
         #     domain_out32 = self.discr_out32(feat_out32)
         feat_out = F.interpolate(feat_out, (H, W), mode='bilinear', align_corners=True)
-        feat_out16 = F.interpolate(feat_out16, (H, W), mode='bilinear', align_corners=True)
+        feat_out16 = F.interpolate(feat_out16, (H, W), mode='bilinear', align_corners=True) 
         feat_out32 = F.interpolate(feat_out32, (H, W), mode='bilinear', align_corners=True)
 
         return feat_out, feat_out16, feat_out32

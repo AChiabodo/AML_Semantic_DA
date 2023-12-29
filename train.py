@@ -21,26 +21,50 @@ from PIL import Image
 logger = logging.getLogger()
 
 def val(args, model, dataloader, writer = None , epoch = None, step = None):
+    """
+    Performs a validation step on the given validation dataset.
+    
+    Args:
+    - args (Namespace): A namespace containing various parameters like number of classes.
+    - model (torch.nn.Module): The semantic segmentation model to be evaluated.
+    - dataloader (DataLoader): The DataLoader providing the validation dataset.
+    - writer (SummaryWriter, optional): TensorBoard writer object for logging purposes. Defaults to None.
+    - epoch (int, optional): The current epoch number. Defaults to None.
+    - step (int, optional): The current step or iteration number in the validation process. Defaults to None.
+    
+    Returns:
+    - precision (float): overall pixel accuracy
+    - miou (float): mean intersection over union
+    """
+
     print('start val!')
     with torch.no_grad():
+
+        # 1. Initialization of the evaluation process
         model.eval()
-        precision_record = []
-        hist = np.zeros((args.num_classes, args.num_classes))
-        random_sample = random.randint(0, len(dataloader) - 1)
+        precision_record = [] #list of precisions for pixel accuracy
+        hist = np.zeros((args.num_classes, args.num_classes)) #confusion matrix for mIoU
+        random_sample = random.randint(0, len(dataloader) - 1) #randomly selects an image to save to tensorboard
+
+        # 2. Iteration over the validation dataset
         for i, (data, label) in enumerate(dataloader):
+
+            # 2.1. Move the data to the GPU
             label = label.type(torch.LongTensor)
             data = data.cuda()
             label = label.long().cuda()
 
-            # get RGB predict image
-            predict, _, _ = model(data)
+            # 2.2. Perform the forward pass and get the predictions
+            predict, _, _ = model(data) # get RGB predict image
             
+            # 2.3. Save the predictions to tensorboard
             if i == random_sample and writer is not None:
                 colorized_predictions , colorized_labels = CityScapes.visualize_prediction(predict, label)
                 writer.add_image('eval%d/iter%d/predicted_eval_labels' % (epoch, i), np.array(colorized_predictions), step, dataformats='HWC')
                 writer.add_image('eval%d/iter%d/correct_eval_labels' % (epoch, i), np.array(colorized_labels), step, dataformats='HWC')
                 writer.add_image('eval%d/iter%d/eval_original _data' % (epoch, i), np.array(data[0].cpu(),dtype='uint8'), step, dataformats='CHW')
 
+            # 2.4. Transform the predictions and labels to numpy arrays
             predict = predict.squeeze(0)
             predict = reverse_one_hot(predict)
             predict = np.array(predict.cpu())
@@ -49,8 +73,10 @@ def val(args, model, dataloader, writer = None , epoch = None, step = None):
             label = label.squeeze()
             label = np.array(label.cpu())
 
-            # compute per pixel accuracy
+            # 2.5. Compute the pixel accuracy
             precision = compute_global_accuracy(predict, label)
+
+            # 2.6. Compute the confusion matrix for mIoU
             hist += fast_hist(label.flatten(), predict.flatten(), args.num_classes)
 
             # there is no need to transform the one-hot array to visual RGB array
@@ -58,6 +84,7 @@ def val(args, model, dataloader, writer = None , epoch = None, step = None):
             # label = colour_code_segmentation(np.array(label), label_info)
             precision_record.append(precision)
             
+        # 3. Compute the overall pixel accuracy and mean intersection over union
         precision = np.mean(precision_record)
         miou_list = per_class_iu(hist)
         miou = np.mean(miou_list)
@@ -68,32 +95,70 @@ def val(args, model, dataloader, writer = None , epoch = None, step = None):
         return precision, miou
 
 def train_da(args, model, optimizer, source_dataloader_train, target_dataloader_train, target_dataloader_val, comment=''):
+    """
+    Trains the model with domain adaptation
+
+    Args:
+    - args (Namespace): A namespace containing various parameters like number of classes.
+    - model (torch.nn.Module): The semantic segmentation model to be trained.
+    - optimizer (torch.optim): The optimizer used for training.
+    - source_dataloader_train (DataLoader): The DataLoader providing the source training dataset.
+    - target_dataloader_train (DataLoader): The DataLoader providing the target training dataset.
+    - target_dataloader_val (DataLoader): The DataLoader providing the target validation dataset.
+    - comment (str, optional): Optional comment to add to the model name and to the log. Defaults to ''.
+
+    Returns:
+    - precision (float): overall pixel accuracy
+    - miou (float): mean intersection over union
+    """
+
+    # 1. Initialization of the training process
     #writer = SummaryWriter(comment=''.format(args.optimizer))
     writer = SummaryWriter(comment=comment)
     scaler = amp.GradScaler()
     
+    # 2. Initialization of the discriminator
     discr = BiSeNetDiscriminator(num_classes=args.num_classes).cuda()
     discr_optim = torch.optim.Adam(discr.parameters(), lr=0.0002, betas=(0.9, 0.99))
 
+    # 3. Initialization of the loss functions
+    #    a. for the generator (segmentation task)
     loss_func = torch.nn.CrossEntropyLoss(ignore_index=255)
+    #    b. for the discriminator
     discr_loss_func = torch.nn.MSELoss()
 
+    # 4. TRAINING LOOP
     max_miou = 0
     step = 0
     for epoch in range(args.num_epochs):
+
+        # 4.1. Update the learning rate
         lr = poly_lr_scheduler(optimizer, args.learning_rate, iter=epoch, max_iter=args.num_epochs)
         discr_lr = poly_lr_scheduler(discr_optim, 0.0002, iter=epoch, max_iter=args.num_epochs)
 
         model.train()
+
+        # 4.2. Initialization of v
         tq = tqdm(total=min(len(source_dataloader_train),len(target_dataloader_train)) * args.batch_size)
         tq.set_description('epoch %d,G lr %f, D lr %f' % (epoch, lr, discr_lr))
+
+        # 4.3. Initialization of the loss record
         loss_record = []
+
+
         image_number = random.randint(0, min(len(source_dataloader_train),len(target_dataloader_train)) - 1)
+
+        # 4.4. ITERATION OVER THE TRAINING DATASET
         for i, (source_data, target_data) in enumerate(zip(source_dataloader_train,target_dataloader_train)):
+
+            # 4.4.1. Move the data to the GPU
             source_data,source_label = source_data
             target_data,_ = target_data
             source_data = source_data.cuda()
             source_label = source_label.long().cuda()
+            target_data = target_data.cuda()
+
+            # 4.4.2. Reset the gradients
             optimizer.zero_grad()
             discr_optim.zero_grad()
             
@@ -102,24 +167,25 @@ def train_da(args, model, optimizer, source_dataloader_train, target_dataloader_
             ##############################################            
             with amp.autocast():
                 discr.train_params(False)
+
+                # 1. Get the predictions for the SOURCE DOMAIN
                 s_output, s_out16, s_out32 = model(source_data)
-                #dom, dom16, dom32 = discr(s_output) , discr(s_out16) , discr(s_out32) # .detach() ?
-                
+                # 2. Compute the cross entropy loss           
                 loss1 = loss_func(s_output, source_label.squeeze(1))
                 loss2 = loss_func(s_out16, source_label.squeeze(1))
                 loss3 = loss_func(s_out32, source_label.squeeze(1))
-                #loss4 = discr_loss_func(dom, torch.ones(dom.shape,dtype=torch.float).cuda())
-                #loss5 = discr_loss_func(dom16, torch.ones(dom.shape,dtype=torch.float).cuda())
-                #loss4 = discr_loss_func(dom32, torch.ones(dom.shape,dtype=torch.float).cuda())
-                t_output, t_out16, t_out32 = model(target_data)
-                #dom, dom16, dom32 = discr(t_output) , discr(t_out16) , discr(t_out32)
-                dom = discr(t_output)#.squeeze(1)
-                #loss = loss1 + loss2 + loss3 #+ loss4 + loss5 + loss6
-                loss4 = discr_loss_func(dom, torch.zeros(dom.shape,dtype=torch.float).cuda())
-                #loss5 = discr_loss_func(dom16, torch.zeros(dom16.shape,dtype=torch.float).cuda().squeeze(1))
-                #loss6 = discr_loss_func(dom32, torch.zeros(dom32.shape,dtype=torch.float).cuda().squeeze(1))
-                loss = loss1 + loss2 + loss3 + 0.1 * loss4 #+ loss5 + loss6
 
+                # 3. Get the predictions for the TARGET DOMAIN
+                t_output, _, _ = model(target_data)
+                # 4. Get the discriminator predictions
+                dom = discr(t_output)
+                # 5. Compute the adversarial loss
+                loss4 = discr_loss_func(dom, torch.zeros(dom.shape,dtype=torch.float).cuda())
+                
+                # 6. Compute the total loss
+                loss = loss1 + loss2 + loss3 + 0.1 * loss4
+                
+                # 7. Save the predictions to tensorboard
                 if i == image_number and epoch % 2 == 0: #saves the first image in the batch to tensorboard
                     print('epoch {}, iter {}, loss1: {}, loss2: {}, loss3: {}, loss4: {}'.format(epoch, i, loss1, loss2, loss3, loss4))
                     colorized_predictions , colorized_labels = CityScapes.visualize_prediction(s_output, source_label)
@@ -141,7 +207,7 @@ def train_da(args, model, optimizer, source_dataloader_train, target_dataloader_
                 discr.train_params(True)
                 discr_optim.zero_grad() # is this needed?
                 #dom, dom16, dom32 = discr(s_output.detach()) , discr(s_out16.detach()) , discr(s_out32.detach())
-                dom = discr(s_output.detach())#.squeeze(1)
+                dom = discr(s_output.detach())#.squeeze(1) # det
                 d_loss7 = discr_loss_func(dom, torch.ones(dom.shape,dtype=torch.float).cuda())
                 #d_loss8 = discr_loss_func(dom16, torch.ones(dom16.shape,dtype=torch.float).cuda().squeeze(1))
                 #d_loss9 = discr_loss_func(dom32, torch.ones(dom32.shape,dtype=torch.float).cuda().squeeze(1))
@@ -165,6 +231,8 @@ def train_da(args, model, optimizer, source_dataloader_train, target_dataloader_
             writer.add_scalar('loss_step', loss, step)
             loss_record.append(loss.item())
         tq.close()
+
+
         loss_train_mean = np.mean(loss_record)
         writer.add_scalar('epoch/loss_epoch_train', float(loss_train_mean), epoch)
         print('loss for train : %f' % (loss_train_mean))
