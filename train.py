@@ -72,7 +72,7 @@ def train_da(args, model, optimizer, source_dataloader_train, target_dataloader_
     writer = SummaryWriter(comment=comment)
     scaler = amp.GradScaler()
     d_lr = 1e-4
-    max_lam = 0.01
+    max_lam = 0.004
     discr = torch.nn.DataParallel(BiSeNetDiscriminator(num_classes=args.num_classes)).cuda()
     discr_optim = torch.optim.Adam(discr.parameters(), lr=d_lr, betas=(0.9, 0.99))
 
@@ -87,7 +87,7 @@ def train_da(args, model, optimizer, source_dataloader_train, target_dataloader_
         discr_lr = poly_lr_scheduler(discr_optim, d_lr, iter=epoch, max_iter=args.num_epochs)
         #lam = max_lam * ((epoch) / args.num_epochs) ** 0.9
         #lam = max_lam if epoch > 10 else max_lam * ( 1 + ((epoch - 10) / (args.num_epochs)))
-        lam = (max_lam) * (1 + np.sin(np.pi / 2 * epoch / 50)) / 2
+        lam = (max_lam) #* (1 + np.sin(np.pi / 2 * epoch / 50)) / 2
         model.train()
         tq = tqdm(total=min(len(source_dataloader_train),len(target_dataloader_train)) * args.batch_size)
         tq.set_description('epoch %d,G-lr %f, D-lr %f, lam %f' % (epoch, lr, discr_lr, lam))
@@ -181,7 +181,11 @@ def train_da(args, model, optimizer, source_dataloader_train, target_dataloader_
         tq.close()
         loss_train_mean = np.mean(loss_record)
         writer.add_scalar('epoch/loss_epoch_train', float(loss_train_mean), epoch)
-        writer.add_scalar('epoch/loss_epoch_discr', float(d_loss), epoch)
+#       writer.add_scalar('epoch/loss_epoch_discr', float(d_loss), epoch)
+        writer.add_scalar('epoch/loss_epoch_discr', float(np.mean(loss_discr_record)), epoch)
+        writer.add_scalar('train/lambda', float(lam), epoch)
+        writer.add_scalar('train/discr_lr', float(discr_lr), epoch)
+        writer.add_scalar('train/g_lr', float(lr), epoch)
         print('loss for train : %f' % (loss_train_mean))
         if epoch % args.checkpoint_step == 0 and epoch != 0:
             import os
@@ -403,7 +407,7 @@ def parse_args():
     return parse.parse_args()
 
 # --dataset GTA5 --data_transformations 0 --batch_size 10 --learning_rate 0.01 --num_epochs 50 --save_model_path trained_models\test_print_features --resume False --comment test_print_features--mode train
-
+# --mode train_da --dataset CROSS_DOMAIN --save_model_path trained_models\adv_single_layer_lam0.001_softmax_resumed --comment adv_single_layer_lam0.005_softmax --data_transformation 0 --batch_size 4 --learning_rate 0.002 --num_workers 4 --optimizer sgd --resume True --resume_model_path trained_models\avd_single_layer_lam0.005_softmax\best.pth
 def main():
     args = parse_args()
 
