@@ -67,7 +67,7 @@ def val(args, model, dataloader, writer = None , epoch = None, step = None):
 
         return precision, miou
 
-def train_da(args, model, optimizer, source_dataloader_train, target_dataloader_train, target_dataloader_val, comment=''):
+def train_da(args, model, optimizer, source_dataloader_train, target_dataloader_train, target_dataloader_val, comment='', layer=0):
     #writer = SummaryWriter(comment=''.format(args.optimizer))
     writer = SummaryWriter(comment=comment)
     scaler = amp.GradScaler()
@@ -127,7 +127,14 @@ def train_da(args, model, optimizer, source_dataloader_train, target_dataloader_
             with amp.autocast():
                 ### Fool the discriminator by using source labels on target data
                 t_output, t_out16, t_out32 = model(target_data)
-                dom = discr(softmax_func(t_output, dim=1))
+                if layer == 0:
+                    dom = discr(softmax_func(t_output, dim=1))
+                elif layer == 1:
+                    dom = discr(softmax_func(t_out16, dim=1))
+                elif layer == 2:
+                    dom = discr(softmax_func(t_out32, dim=1))
+                else:
+                    raise ValueError('layer should be 0, 1 or 2')
                 
                 td_loss_fooled = discr_loss_func(dom, dsource_labels(dom.shape,dtype=torch.float).cuda())
                 
@@ -139,8 +146,17 @@ def train_da(args, model, optimizer, source_dataloader_train, target_dataloader_
             ##############################################
             discr.module.train_params(True)
 
-            s_output = s_output.detach()
-            t_output = t_output.detach()
+            if layer == 0:
+                s_output = s_output.detach()
+                t_output = t_output.detach()
+            elif layer == 1:
+                s_output = s_out16.detach()
+                t_output = t_out16.detach()
+            elif layer == 2:
+                s_output = s_out32.detach()
+                t_output = t_out32.detach()
+            else:
+                raise ValueError('layer should be 0, 1 or 2')
             with amp.autocast():
                 dom = discr(softmax_func(s_output, dim=1))
                 sd_loss = discr_loss_func(dom, dsource_labels(dom.shape,dtype=torch.float).cuda()) / 2
@@ -188,7 +204,6 @@ def train_da(args, model, optimizer, source_dataloader_train, target_dataloader_
         writer.add_scalar('train/g_lr', float(lr), epoch)
         print('loss for train : %f' % (loss_train_mean))
         if epoch % args.checkpoint_step == 0 and epoch != 0:
-            import os
             if not os.path.isdir(args.save_model_path):
                 os.mkdir(args.save_model_path)
             torch.save(model.module.state_dict(), os.path.join(args.save_model_path, 'latest.pth'))
@@ -197,7 +212,6 @@ def train_da(args, model, optimizer, source_dataloader_train, target_dataloader_
             precision, miou = val(args, model, target_dataloader_val, writer, epoch, step)
             if miou > max_miou:
                 max_miou = miou
-                import os
                 os.makedirs(args.save_model_path, exist_ok=True)
                 torch.save(model.module.state_dict(), os.path.join(args.save_model_path, 'best.pth'))
             writer.add_scalar('epoch/precision_val', precision, epoch)
@@ -206,7 +220,6 @@ def train_da(args, model, optimizer, source_dataloader_train, target_dataloader_
     precision, miou = val(args, model, target_dataloader_val, writer, epoch, step)
     if miou > max_miou:
         max_miou = miou
-        import os
         os.makedirs(args.save_model_path, exist_ok=True)
         torch.save(model.module.state_dict(), os.path.join(args.save_model_path, 'best.pth'))
     writer.add_scalar('epoch/precision_val', precision, epoch)
@@ -234,7 +247,7 @@ def train(args, model, optimizer, dataloader_train, dataloader_val, comment=''):
             optimizer.zero_grad()
 
             with amp.autocast():
-                output, out16, out32, _ = model(data)
+                output, out16, out32 = model(data)
                 loss1 = loss_func(output, label.squeeze(1))
                 loss2 = loss_func(out16, label.squeeze(1))
                 loss3 = loss_func(out32, label.squeeze(1))
@@ -282,7 +295,6 @@ def train(args, model, optimizer, dataloader_train, dataloader_val, comment=''):
     precision, miou = val(args, model, dataloader_val, writer, epoch, step)
     if miou > max_miou:
         max_miou = miou
-        import os
         os.makedirs(args.save_model_path, exist_ok=True)
         torch.save(model.module.state_dict(), os.path.join(args.save_model_path, 'best.pth'))
     writer.add_scalar('epoch/precision_val', precision, epoch)
@@ -423,7 +435,7 @@ def main():
             transformations = ExtCompose([ExtScale(0.5,interpolation=Image.Resampling.BILINEAR), ExtToTensor()]) #ExtRandomHorizontalFlip(),
             target_transformations = ExtCompose([ExtScale(0.5,interpolation=Image.Resampling.BILINEAR), ExtToTensor()])
         case 1:
-            transformations = ExtCompose([ExtScale(random.choice([0.75,1,1.25,1.5,1.75,2]),interpolation=Image.Resampling.BILINEAR),ExtRandomCrop((args.crop_height, args.crop_width)), ExtToTensor()])
+            transformations = ExtCompose([ExtScale(random.choice([0.75,1,1.25,1.5,1.75,2]),interpolation=Image.Resampling.BILINEAR),ExtRandomHorizontalFlip(),ExtRandomCrop((args.crop_height, args.crop_width)), ExtToTensor()])
             target_transformations = ExtCompose([ExtScale(random.choice([0.75,1,1.25,1.5,1.75,2]),interpolation=Image.Resampling.BILINEAR),ExtRandomCrop((512, 1024)), ExtToTensor()])
     eval_transformations = ExtCompose([ExtScale(0.5,interpolation=Image.Resampling.BILINEAR), ExtToTensor()])
     
@@ -434,8 +446,8 @@ def main():
 
     elif args.dataset == 'GTA5':
         print('training on GTA5')
-        train_dataset = GTA5(root='dataset',split="train",transforms=transformations)
-        val_dataset = GTA5(root='dataset',split="eval",transforms=eval_transformations)
+        train_dataset = GTA5(root='dataset',split="train",transforms=transformations,labels_source='cityscapes')
+        val_dataset = GTA5(root='dataset',split="eval",transforms=eval_transformations,labels_source='cityscapes')
 
     elif args.dataset == 'CROSS_DOMAIN':
         print('training on GTA and validating on Cityscapes')
