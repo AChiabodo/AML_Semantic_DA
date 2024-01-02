@@ -13,6 +13,7 @@ from tensorboardX import SummaryWriter
 import torch.cuda.amp as amp
 from utils import poly_lr_scheduler
 from utils import reverse_one_hot, compute_global_accuracy, fast_hist, per_class_iu
+from utils import str2bool
 from tqdm import tqdm
 import random
 import os
@@ -297,15 +298,6 @@ def train(args, model, optimizer, dataloader_train, dataloader_val, comment=''):
         torch.save(model.module.state_dict(), os.path.join(args.save_model_path, 'best.pth'))
     writer.add_scalar('epoch/precision_val', precision, epoch)
     writer.add_scalar('epoch/miou val', miou, epoch)
-
-def str2bool(v):
-    if v.lower() in ('yes', 'true', 't', 'y', '1'):
-        return True
-    elif v.lower() in ('no', 'false', 'f', 'n', '0'):
-        return False
-    else:
-        raise argparse.ArgumentTypeError('Unsupported value encountered.')
-
 
 
 def parse_args():
