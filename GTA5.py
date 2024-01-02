@@ -164,7 +164,3 @@ class GTA5(torchDataset):
     
     def map_to_cityscapes(self, lbl):
         return self.id_to_train_id[np.array(lbl)]
-
-
-
-

@@ -565,3 +565,24 @@ class ExtRandomCrop(object):
 
     def __repr__(self):
         return self.__class__.__name__ + '(size={0}, padding={1})'.format(self.size, self.padding)
+    
+class ExtGaussianBlur(object):
+		"""Gaussian blur augmentation in SimCLR https://arxiv.org/abs/2002.05709
+		Args:
+				sigma (float): Standard deviation to be passed to `gaussian_blur`.
+		"""
+		def __init__(self, sigma=[.1, 2.]):
+				self.sigma = sigma
+
+		def __call__(self, img : Image, lbl : Image) -> (Image, Image):
+				"""
+				Args:
+						img (PIL Image): Image to be blurred.
+				Returns:
+						PIL Image: Gaussian blurred image.
+				"""
+				sigma = random.uniform(self.sigma[0], self.sigma[1])
+				return F.gaussian_blur(img, sigma), lbl
+
+		def __repr__(self):
+				return self.__class__.__name__ + '(sigma={0})'.format(self.sigma)

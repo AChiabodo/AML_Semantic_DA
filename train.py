@@ -21,50 +21,26 @@ from PIL import Image
 logger = logging.getLogger()
 
 def val(args, model, dataloader, writer = None , epoch = None, step = None):
-    """
-    Performs a validation step on the given validation dataset.
-    
-    Args:
-    - args (Namespace): A namespace containing various parameters like number of classes.
-    - model (torch.nn.Module): The semantic segmentation model to be evaluated.
-    - dataloader (DataLoader): The DataLoader providing the validation dataset.
-    - writer (SummaryWriter, optional): TensorBoard writer object for logging purposes. Defaults to None.
-    - epoch (int, optional): The current epoch number. Defaults to None.
-    - step (int, optional): The current step or iteration number in the validation process. Defaults to None.
-    
-    Returns:
-    - precision (float): overall pixel accuracy
-    - miou (float): mean intersection over union
-    """
-
     print('start val!')
     with torch.no_grad():
-
-        # 1. Initialization of the evaluation process
         model.eval()
-        precision_record = [] #list of precisions for pixel accuracy
-        hist = np.zeros((args.num_classes, args.num_classes)) #confusion matrix for mIoU
-        random_sample = random.randint(0, len(dataloader) - 1) #randomly selects an image to save to tensorboard
-
-        # 2. Iteration over the validation dataset
+        precision_record = []
+        hist = np.zeros((args.num_classes, args.num_classes))
+        random_sample = random.randint(0, len(dataloader) - 1)
         for i, (data, label) in enumerate(dataloader):
-
-            # 2.1. Move the data to the GPU
             label = label.type(torch.LongTensor)
             data = data.cuda()
             label = label.long().cuda()
 
-            # 2.2. Perform the forward pass and get the predictions
-            predict, _, _ = model(data) # get RGB predict image
+            # get RGB predict image
+            predict, _, _ = model(data)
             
-            # 2.3. Save the predictions to tensorboard
             if i == random_sample and writer is not None:
                 colorized_predictions , colorized_labels = CityScapes.visualize_prediction(predict, label)
                 writer.add_image('eval%d/iter%d/predicted_eval_labels' % (epoch, i), np.array(colorized_predictions), step, dataformats='HWC')
                 writer.add_image('eval%d/iter%d/correct_eval_labels' % (epoch, i), np.array(colorized_labels), step, dataformats='HWC')
                 writer.add_image('eval%d/iter%d/eval_original _data' % (epoch, i), np.array(data[0].cpu(),dtype='uint8'), step, dataformats='CHW')
 
-            # 2.4. Transform the predictions and labels to numpy arrays
             predict = predict.squeeze(0)
             predict = reverse_one_hot(predict)
             predict = np.array(predict.cpu())
@@ -73,10 +49,8 @@ def val(args, model, dataloader, writer = None , epoch = None, step = None):
             label = label.squeeze()
             label = np.array(label.cpu())
 
-            # 2.5. Compute the pixel accuracy
+            # compute per pixel accuracy
             precision = compute_global_accuracy(predict, label)
-
-            # 2.6. Compute the confusion matrix for mIoU
             hist += fast_hist(label.flatten(), predict.flatten(), args.num_classes)
 
             # there is no need to transform the one-hot array to visual RGB array
@@ -84,7 +58,6 @@ def val(args, model, dataloader, writer = None , epoch = None, step = None):
             # label = colour_code_segmentation(np.array(label), label_info)
             precision_record.append(precision)
             
-        # 3. Compute the overall pixel accuracy and mean intersection over union
         precision = np.mean(precision_record)
         miou_list = per_class_iu(hist)
         miou = np.mean(miou_list)
@@ -94,100 +67,110 @@ def val(args, model, dataloader, writer = None , epoch = None, step = None):
 
         return precision, miou
 
-def train_da(args, model, optimizer, source_dataloader_train, target_dataloader_train, target_dataloader_val, comment=''):
-    """
-    Trains the model with domain adaptation
-
-    Args:
-    - args (Namespace): A namespace containing various parameters like number of classes.
-    - model (torch.nn.Module): The semantic segmentation model to be trained.
-    - optimizer (torch.optim): The optimizer used for training.
-    - source_dataloader_train (DataLoader): The DataLoader providing the source training dataset.
-    - target_dataloader_train (DataLoader): The DataLoader providing the target training dataset.
-    - target_dataloader_val (DataLoader): The DataLoader providing the target validation dataset.
-    - comment (str, optional): Optional comment to add to the model name and to the log. Defaults to ''.
-
-    Returns:
-    - precision (float): overall pixel accuracy
-    - miou (float): mean intersection over union
-    """
-
-    # 1. Initialization of the training process
+def train_da(args, model, optimizer, source_dataloader_train, target_dataloader_train, target_dataloader_val, comment='', layer=0):
     #writer = SummaryWriter(comment=''.format(args.optimizer))
     writer = SummaryWriter(comment=comment)
     scaler = amp.GradScaler()
-    
-    # 2. Initialization of the discriminator
-    discr = BiSeNetDiscriminator(num_classes=args.num_classes).cuda()
-    discr_optim = torch.optim.Adam(discr.parameters(), lr=0.0002, betas=(0.9, 0.99))
+    d_lr = 1e-4
+    max_lam = 0.0025
+    discr = torch.nn.DataParallel(BiSeNetDiscriminator(num_classes=args.num_classes)).cuda()
+    discr_optim = torch.optim.Adam(discr.parameters(), lr=d_lr, betas=(0.9, 0.99))
 
-    # 3. Initialization of the loss functions
-    #    a. for the generator (segmentation task)
     loss_func = torch.nn.CrossEntropyLoss(ignore_index=255)
-    #    b. for the discriminator
     discr_loss_func = torch.nn.MSELoss()
-
-    # 4. TRAINING LOOP
+    #discr_loss_func = torch.nn.BCEWithLogitsLoss()
+    
     max_miou = 0
     step = 0
     for epoch in range(args.num_epochs):
-
-        # 4.1. Update the learning rate
         lr = poly_lr_scheduler(optimizer, args.learning_rate, iter=epoch, max_iter=args.num_epochs)
-        discr_lr = poly_lr_scheduler(discr_optim, 0.0002, iter=epoch, max_iter=args.num_epochs)
-
+        discr_lr = poly_lr_scheduler(discr_optim, d_lr, iter=epoch, max_iter=args.num_epochs)
+        #lam = max_lam * ((epoch) / args.num_epochs) ** 0.9
+        #lam = max_lam if epoch > 10 else max_lam * ( 1 + ((epoch - 10) / (args.num_epochs)))
+        lam = (max_lam) #* (1 + np.sin(np.pi / 2 * epoch / 50)) / 2
         model.train()
-
-        # 4.2. Initialization of v
         tq = tqdm(total=min(len(source_dataloader_train),len(target_dataloader_train)) * args.batch_size)
-        tq.set_description('epoch %d,G lr %f, D lr %f' % (epoch, lr, discr_lr))
-
-        # 4.3. Initialization of the loss record
+        tq.set_description('epoch %d,G-lr %f, D-lr %f, lam %f' % (epoch, lr, discr_lr, lam))
         loss_record = []
-
-
+        loss_discr_record = []
         image_number = random.randint(0, min(len(source_dataloader_train),len(target_dataloader_train)) - 1)
 
-        # 4.4. ITERATION OVER THE TRAINING DATASET
-        for i, (source_data, target_data) in enumerate(zip(source_dataloader_train,target_dataloader_train)):
+        softmax_func = torch.nn.functional.softmax
+        dsource_labels , dtarget_labels = torch.ones , torch.zeros
 
-            # 4.4.1. Move the data to the GPU
+        for i, (source_data, target_data) in enumerate(zip(source_dataloader_train,target_dataloader_train)):
             source_data,source_label = source_data
             target_data,_ = target_data
             source_data = source_data.cuda()
             source_label = source_label.long().cuda()
             target_data = target_data.cuda()
-
-            # 4.4.2. Reset the gradients
             optimizer.zero_grad()
             discr_optim.zero_grad()
             
             ##############################################
             # Train Generator
             ##############################################            
-            with amp.autocast():
-                discr.train_params(False)
+            discr.module.train_params(False)
 
-                # 1. Get the predictions for the SOURCE DOMAIN
+            with amp.autocast():
+                #train source data
                 s_output, s_out16, s_out32 = model(source_data)
-                # 2. Compute the cross entropy loss           
+                
+                ### Train Generator with source data
                 loss1 = loss_func(s_output, source_label.squeeze(1))
                 loss2 = loss_func(s_out16, source_label.squeeze(1))
                 loss3 = loss_func(s_out32, source_label.squeeze(1))
+                
+                loss = loss1 + loss2 + loss3
+            scaler.scale(loss).backward()
+            
+            with amp.autocast():
+                ### Fool the discriminator by using source labels on target data
+                t_output, t_out16, t_out32 = model(target_data)
+                if layer == 0:
+                    dom = discr(softmax_func(t_output, dim=1))
+                elif layer == 1:
+                    dom = discr(softmax_func(t_out16, dim=1))
+                elif layer == 2:
+                    dom = discr(softmax_func(t_out32, dim=1))
+                else:
+                    raise ValueError('layer should be 0, 1 or 2')
+                
+                td_loss_fooled = discr_loss_func(dom, dsource_labels(dom.shape,dtype=torch.float).cuda())
+                
+                d_loss = td_loss_fooled * lam
+            scaler.scale(d_loss).backward()
 
-                # 3. Get the predictions for the TARGET DOMAIN
-                t_output, _, _ = model(target_data)
-                # 4. Get the discriminator predictions
-                dom = discr(t_output)
-                # 5. Compute the adversarial loss
-                loss4 = discr_loss_func(dom, torch.zeros(dom.shape,dtype=torch.float).cuda())
+            ##############################################
+            # Train Discriminator
+            ##############################################
+            discr.module.train_params(True)
+
+            if layer == 0:
+                s_output = s_output.detach()
+                t_output = t_output.detach()
+            elif layer == 1:
+                s_output = s_out16.detach()
+                t_output = t_out16.detach()
+            elif layer == 2:
+                s_output = s_out32.detach()
+                t_output = t_out32.detach()
+            else:
+                raise ValueError('layer should be 0, 1 or 2')
+            with amp.autocast():
+                dom = discr(softmax_func(s_output, dim=1))
+                sd_loss = discr_loss_func(dom, dsource_labels(dom.shape,dtype=torch.float).cuda()) / 2
                 
-                # 6. Compute the total loss
-                loss = loss1 + loss2 + loss3 + 0.1 * loss4
+            scaler.scale(sd_loss).backward()    
+
+            with amp.autocast():
+                dom = discr(softmax_func(t_output , dim=1))
+                td_loss = discr_loss_func(dom, dtarget_labels(dom.shape,dtype=torch.float).cuda()) / 2
                 
-                # 7. Save the predictions to tensorboard
-                if i == image_number and epoch % 2 == 0: #saves the first image in the batch to tensorboard
-                    print('epoch {}, iter {}, loss1: {}, loss2: {}, loss3: {}, loss4: {}'.format(epoch, i, loss1, loss2, loss3, loss4))
+            scaler.scale(td_loss).backward()
+
+            if i == image_number and epoch % 2 == 0: #saves the first image in the batch to tensorboard
+                    print('epoch {}, iter {}, loss1: {}, loss2: {}, loss3: {}, d_loss_fool: {}, d_loss: {}'.format(epoch, i, loss1, loss2, loss3, d_loss, sd_loss+td_loss))
                     colorized_predictions , colorized_labels = CityScapes.visualize_prediction(s_output, source_label)
                     colorized_predictions_16 , _ = CityScapes.visualize_prediction(s_out16, source_label)
                     colorized_predictions_32 , _ = CityScapes.visualize_prediction(s_out32, source_label)
@@ -197,47 +180,29 @@ def train_da(args, model, optimizer, source_dataloader_train, target_dataloader_
                     writer.add_image('epoch%d/iter%d/original_data' % (epoch, i), np.array(source_data[0].cpu(),dtype='uint8'), step, dataformats='CHW')
                     writer.add_image('epoch%d/iter%d/predicted_labels_16' % (epoch, i), np.array(colorized_predictions_16), step, dataformats='HWC')
                     writer.add_image('epoch%d/iter%d/predicted_labels_32' % (epoch, i), np.array(colorized_predictions_32), step, dataformats='HWC')
-                
-            scaler.scale(loss).backward()
 
-            with amp.autocast():
-                ##############################################
-                # Train Discriminator
-                ##############################################
-                discr.train_params(True)
-                discr_optim.zero_grad() # is this needed?
-                #dom, dom16, dom32 = discr(s_output.detach()) , discr(s_out16.detach()) , discr(s_out32.detach())
-                dom = discr(s_output.detach())#.squeeze(1) # det
-                d_loss7 = discr_loss_func(dom, torch.ones(dom.shape,dtype=torch.float).cuda())
-                #d_loss8 = discr_loss_func(dom16, torch.ones(dom16.shape,dtype=torch.float).cuda().squeeze(1))
-                #d_loss9 = discr_loss_func(dom32, torch.ones(dom32.shape,dtype=torch.float).cuda().squeeze(1))
-
-                #dom, dom16, dom32 = discr(t_output.detach()) , discr(t_out16.detach()) , discr(t_out32.detach())
-                dom = discr(t_output.detach())#.squeeze(1)
-                d_loss7 += discr_loss_func(dom, torch.zeros(dom.shape,dtype=torch.float).cuda())
-                #d_loss8 += discr_loss_func(dom16, torch.zeros(dom16.shape,dtype=torch.float).cuda().squeeze(1))
-                #d_loss9 += discr_loss_func(dom32, torch.zeros(dom32.shape,dtype=torch.float).cuda().squeeze(1))
-                d_loss = d_loss7 #+ d_loss8 + d_loss9
-
-            #scaler.scale(loss).backward()
-            scaler.scale(d_loss).backward()
             scaler.step(optimizer)
             scaler.step(discr_optim)
             scaler.update()
 
+
+            loss = loss + d_loss
+            d_loss = sd_loss + td_loss
             tq.update(args.batch_size)
             tq.set_postfix(loss='%.6f' % loss)
             step += 1
-            writer.add_scalar('loss_step', loss, step)
+            #writer.add_scalar('loss_step', loss, step)
             loss_record.append(loss.item())
+            loss_discr_record.append(d_loss.item())
         tq.close()
-
-
         loss_train_mean = np.mean(loss_record)
         writer.add_scalar('epoch/loss_epoch_train', float(loss_train_mean), epoch)
+        writer.add_scalar('epoch/loss_epoch_discr', float(np.mean(loss_discr_record)), epoch)
+        writer.add_scalar('train/lambda', float(lam), epoch)
+        writer.add_scalar('train/discr_lr', float(discr_lr), epoch)
+        writer.add_scalar('train/g_lr', float(lr), epoch)
         print('loss for train : %f' % (loss_train_mean))
         if epoch % args.checkpoint_step == 0 and epoch != 0:
-            import os
             if not os.path.isdir(args.save_model_path):
                 os.mkdir(args.save_model_path)
             torch.save(model.module.state_dict(), os.path.join(args.save_model_path, 'latest.pth'))
@@ -246,21 +211,25 @@ def train_da(args, model, optimizer, source_dataloader_train, target_dataloader_
             precision, miou = val(args, model, target_dataloader_val, writer, epoch, step)
             if miou > max_miou:
                 max_miou = miou
-                import os
                 os.makedirs(args.save_model_path, exist_ok=True)
                 torch.save(model.module.state_dict(), os.path.join(args.save_model_path, 'best.pth'))
             writer.add_scalar('epoch/precision_val', precision, epoch)
             writer.add_scalar('epoch/miou val', miou, epoch)
     #final evaluation
-    val(args, model, target_dataloader_val, writer, epoch, step)
+    precision, miou = val(args, model, target_dataloader_val, writer, epoch, step)
+    if miou > max_miou:
+        max_miou = miou
+        os.makedirs(args.save_model_path, exist_ok=True)
+        torch.save(model.module.state_dict(), os.path.join(args.save_model_path, 'best.pth'))
+    writer.add_scalar('epoch/precision_val', precision, epoch)
+    writer.add_scalar('epoch/miou val', miou, epoch)
 
 
 def train(args, model, optimizer, dataloader_train, dataloader_val, comment=''):
-    #writer = SummaryWriter(comment=''.format(args.optimizer))
     writer = SummaryWriter(comment=comment)
     scaler = amp.GradScaler()
 
-    loss_func = torch.nn.CrossEntropyLoss(ignore_index=255) #we should check if it's the right index to ignore, is it 255 or 19?
+    loss_func = torch.nn.CrossEntropyLoss(ignore_index=255)
     max_miou = 0
     step = 0
     for epoch in range(args.num_epochs):
@@ -276,7 +245,7 @@ def train(args, model, optimizer, dataloader_train, dataloader_val, comment=''):
             optimizer.zero_grad()
 
             with amp.autocast():
-                output, out16, out32, _ = model(data)
+                output, out16, out32 = model(data)
                 loss1 = loss_func(output, label.squeeze(1))
                 loss2 = loss_func(out16, label.squeeze(1))
                 loss3 = loss_func(out32, label.squeeze(1))
@@ -308,7 +277,6 @@ def train(args, model, optimizer, dataloader_train, dataloader_val, comment=''):
         writer.add_scalar('epoch/loss_epoch_train', float(loss_train_mean), epoch)
         print('loss for train : %f' % (loss_train_mean))
         if epoch % args.checkpoint_step == 0 and epoch != 0:
-            import os
             if not os.path.isdir(args.save_model_path):
                 os.mkdir(args.save_model_path)
             torch.save(model.module.state_dict(), os.path.join(args.save_model_path, 'latest.pth'))
@@ -317,13 +285,18 @@ def train(args, model, optimizer, dataloader_train, dataloader_val, comment=''):
             precision, miou = val(args, model, dataloader_val, writer, epoch, step)
             if miou > max_miou:
                 max_miou = miou
-                import os
                 os.makedirs(args.save_model_path, exist_ok=True)
                 torch.save(model.module.state_dict(), os.path.join(args.save_model_path, 'best.pth'))
             writer.add_scalar('epoch/precision_val', precision, epoch)
             writer.add_scalar('epoch/miou val', miou, epoch)
     #final evaluation
-    val(args, model, dataloader_val, writer, epoch, step)
+    precision, miou = val(args, model, dataloader_val, writer, epoch, step)
+    if miou > max_miou:
+        max_miou = miou
+        os.makedirs(args.save_model_path, exist_ok=True)
+        torch.save(model.module.state_dict(), os.path.join(args.save_model_path, 'best.pth'))
+    writer.add_scalar('epoch/precision_val', precision, epoch)
+    writer.add_scalar('epoch/miou val', miou, epoch)
 
 def str2bool(v):
     if v.lower() in ('yes', 'true', 't', 'y', '1'):
@@ -381,17 +354,13 @@ def parse_args():
                        type=int,
                        default=1024,
                        help='Width of cropped/resized input image to modelwork')
-    # parse.add_argument('--crop_ratio',
-    #                    type=float,
-    #                    default=0.5,
-    #                    help='Ratio of cropped image (width and height) to input image')
     parse.add_argument('--batch_size',
                        type=int,
                        default=4, #2
                        help='Number of images in each batch')
     parse.add_argument('--learning_rate',
                         type=float,
-                        default=0.01, #0.01
+                        default=0.001, #0.01
                         help='learning rate used for train')
     parse.add_argument('--num_workers',
                        type=int,
@@ -444,12 +413,14 @@ def parse_args():
     return parse.parse_args()
 
 # --dataset GTA5 --data_transformations 0 --batch_size 10 --learning_rate 0.01 --num_epochs 50 --save_model_path trained_models\test_print_features --resume False --comment test_print_features--mode train
-
+# --mode train_da --dataset CROSS_DOMAIN --save_model_path trained_models\adv_single_layer_lam0.001_softmax_resumed --comment adv_single_layer_lam0.005_softmax --data_transformation 0 --batch_size 4 --learning_rate 0.002 --num_workers 4 --optimizer sgd --resume True --resume_model_path trained_models\avd_single_layer_lam0.005_softmax\best.pth
+# & C:/Users/aless/Documents/Codice/AML_Semantic_DA/.venv/Scripts/python.exe c:/Users/aless/Documents/Codice/AML_Semantic_DA/train.py --mode train_da --dataset CROSS_DOMAIN --save_model_path trained_models\adv_single_layer_lam0.0025_MSELoss --comment adv_single_layer_lam0.0025_MSELoss --data_transformation 1 --batch_size 5 --learning_rate 0.0025 --num_workers 4 --optimizer sgd --resume True --resume_model_path trained_models\avd_single_layer_lam0.005_softmax\best.pth --crop_height 526 --crop_width 957
 def main():
     args = parse_args()
 
     ## dataset
     n_classes = args.num_classes
+    args.dataset = args.dataset.upper()
     # to be changed
     if args.dataset == 'GTA5':
         args.crop_height, args.crop_width = 526 , 957
@@ -459,24 +430,24 @@ def main():
             transformations = ExtCompose([ExtScale(0.5,interpolation=Image.Resampling.BILINEAR), ExtToTensor()]) #ExtRandomHorizontalFlip(),
             target_transformations = ExtCompose([ExtScale(0.5,interpolation=Image.Resampling.BILINEAR), ExtToTensor()])
         case 1:
-            transformations = ExtCompose([ExtScale(random.choice([0.75,1,1.25,1.5,1.75,2]),interpolation=Image.Resampling.BILINEAR),ExtRandomCrop((args.crop_height, args.crop_width)), ExtToTensor()])
-            target_transformations = ExtCompose([ExtScale(random.choice([0.75,1,1.25,1.5,1.75,2]),interpolation=Image.Resampling.BILINEAR),ExtRandomCrop((512, 1024)), ExtToTensor()])
+            transformations = ExtCompose([ExtScale(random.choice([0.75,1,1.25,1.5,1.75,2]),interpolation=Image.Resampling.BILINEAR),ExtRandomHorizontalFlip(),ExtRandomCrop((args.crop_height, args.crop_width)), ExtToTensor()])
+            target_transformations = ExtCompose([ExtScale(0.5,interpolation=Image.Resampling.BILINEAR), ExtToTensor()])
     eval_transformations = ExtCompose([ExtScale(0.5,interpolation=Image.Resampling.BILINEAR), ExtToTensor()])
     
-    if args.dataset == 'CityScapes':
+    if args.dataset == 'CITYSCAPES':
         print('training on CityScapes')
         train_dataset = CityScapes(split = 'train',transforms=transformations)
         val_dataset = CityScapes(split='val',transforms=eval_transformations)
 
     elif args.dataset == 'GTA5':
         print('training on GTA5')
-        train_dataset = GTA5(root='dataset',split="train",transforms=transformations)
-        val_dataset = GTA5(root='dataset',split="eval",transforms=eval_transformations)
+        train_dataset = GTA5(root='dataset',split="train",transforms=transformations,labels_source='cityscapes')
+        val_dataset = GTA5(root='dataset',split="eval",transforms=eval_transformations,labels_source='cityscapes')
 
     elif args.dataset == 'CROSS_DOMAIN':
         print('training on GTA and validating on Cityscapes')
         train_dataset = GTA5(root='dataset',transforms=transformations)
-        target_dataset_train = CityScapes(split = 'train',transforms=transformations)
+        target_dataset_train = CityScapes(split = 'train',transforms=target_transformations)
         val_dataset = CityScapes(split = 'val',transforms=eval_transformations)
     else:
         print('not supported dataset \n')
