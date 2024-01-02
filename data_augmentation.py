@@ -1,16 +1,42 @@
-import torch.nn as nn
+"""
+data_augmentation.py
+
+This module provides a set of data augmentation transformations specifically 
+designed for image segmentation tasks. The aim of data augmentation is to 
+increase the amount of training data using reasonable transformations for our
+specific case, i.e. street view images.
+
+- ExtTransforms is a base callabale class that defines the interface for
+  all the transformations.
+
+These transformations can be combined to create a robust data augmentation 
+pipeline, enhancing the generalization of semantic segmentation models 
+trained on one dataset (like GTA5) and tested on another (like Cityscapes).
+
+- ExtCompose: Composes several transforms together.
+
+Usage:
+  >>> from data_augmentation import ExtCompose, ExtResize, ExtToTensor
+  >>> transform = ExtCompose([
+  >>>     ExtScale(scale=0.5),
+  >>>     ExtRandomHorizontalFlip(),
+  >>>     ExtToTensor(),
+  >>> ])
+  >>> augmented_image, augmented_label = transform(image, label)
+"""
+
+
 import torch
 import torchvision.transforms.functional as F
 from PIL import Image
 import numpy as np
-import pandas as pd
 import random
 import numbers
-import torchvision
-
-from PIL import Image
 
 
+##############
+# BASE CLASS #
+##############
 class ExtTransforms(object):
 	def	__init__(self) -> None:
 		pass
@@ -18,29 +44,17 @@ class ExtTransforms(object):
 	def __call__(self, img, lbl):
 		pass
 
-class ExtResize(ExtTransforms):
 
-    def __init__(self, size, interpolation=Image.BILINEAR):
-        self.size = size
-        self.interpolation = interpolation
-
-    def __call__(self, img : Image, lbl : Image) -> (Image, Image):
-
-        return F.resize(img, self.size, self.interpolation), F.resize(lbl, self.size, Image.NEAREST)
-    
-class ExtToTensor(ExtTransforms):
-    """Convert a ``PIL Image`` or ``numpy.ndarray`` to tensor.
-    Converts a PIL Image or numpy.ndarray (H x W x C) in the range
-    [0, 255] to a torch.FloatTensor of shape (C x H x W) in the range [0.0, 1.0].
-    """
-    def __init__(self, target_type='uint8'):
-        self.target_type = target_type
-
-    def __call__(self, pic : Image, lbl : Image) -> (torch.Tensor, torch.Tensor):
-        return torch.from_numpy( np.array( pic, dtype=np.float32).transpose(2, 0, 1) ), torch.from_numpy( np.array( lbl, dtype=self.target_type) )
-	
-
+####################
+# BUILDING CLASSES #
+####################
 class ExtCompose(ExtTransforms):
+    """
+    Composes several transforms together.
+
+    Args:
+    - transforms: list of ``Transform`` objects to compose.
+    """
 
     def __init__(self, transforms):
         self.transforms = transforms
@@ -49,19 +63,57 @@ class ExtCompose(ExtTransforms):
         for t in self.transforms:
             img, lbl = t(img, lbl)
         return img, lbl
+    
+class ExtToTensor(ExtTransforms):
+    """
+    Convert a ``PIL Image`` or ``numpy.ndarray`` to tensor.
+    Converts a PIL Image or numpy.ndarray (H x W x C) in the range
+    [0, 255] to a torch.FloatTensor of shape (C x H x W) in the range [0.0, 1.0].
 
-class ExtRandomHorizontalFlip(ExtTransforms):
+    Args:
+    - target_type: type of the target tensor.
+    """
+    def __init__(self, target_type='uint8'):
+        self.target_type = target_type
 
-    def __init__(self, p=0.5):
-        self.p = p
+    def __call__(self, pic : Image, lbl : Image) -> (torch.Tensor, torch.Tensor):
+        return torch.from_numpy( np.array( pic, dtype=np.float32).transpose(2, 0, 1) ), torch.from_numpy( np.array( lbl, dtype=self.target_type) )
+
+
+######################
+# TRANSFORMS CLASSES #
+######################
+
+# SIZE ADJUSTMENTS
+     
+class ExtResize(ExtTransforms):
+    """
+    Resize the input PIL Image and its label to the given size.
+
+    Args:
+    - size (height, width): Desired output size
+    - interpolation: Desired interpolation for the image
+    
+    For the label, we use nearest neighbor interpolation.
+    """
+
+    def __init__(self, size, interpolation=Image.BILINEAR):
+        self.size = size
+        self.interpolation = interpolation
 
     def __call__(self, img : Image, lbl : Image) -> (Image, Image):
-        if random.random() < self.p:
-            return F.hflip(img), F.hflip(lbl)
-        return img, lbl
-
-
+        return F.resize(img, self.size, self.interpolation), F.resize(lbl, self.size, Image.NEAREST)
+    
 class ExtScale(ExtTransforms):
+    """
+    Rescale the input PIL Image and its label by a factor.
+
+    Args:
+    - scale: Desired scale factor
+    - interpolation: Desired interpolation for the image
+
+    For the label, we use nearest neighbor interpolation.
+    """
 
     def __init__(self, scale : float = 0.5, interpolation=Image.BILINEAR):
         self.scale = scale
@@ -72,19 +124,61 @@ class ExtScale(ExtTransforms):
         target_size = ( int(img.size[1]*self.scale), int(img.size[0]*self.scale) ) # (H, W)
         return F.resize(img, target_size, self.interpolation), F.resize(lbl, target_size, Image.NEAREST)
 
-class ExtColorJitter(object):
-    """Randomly change the brightness, contrast and saturation of an image.
+# FLIPS AND ROTATIONS
+
+class ExtRandomHorizontalFlip(ExtTransforms):
+    """
+    Horizontally flip the given PIL Image and its label randomly with a given probability.
+
     Args:
-        brightness (float or tuple of float (min, max)): How much to jitter brightness.
+    - p: probability of the image being flipped.
+    """
+
+    def __init__(self, p=0.5):
+        self.p = p
+
+    def __call__(self, img : Image, lbl : Image) -> (Image, Image):
+        if random.random() < self.p:
+            return F.hflip(img), F.hflip(lbl)
+        return img, lbl
+
+# NOISE AND BLUR
+    
+class ExtGaussianBlur(ExtTransforms):
+    """
+    Apply Gaussian Blur to the given PIL Image and its label with a given probability.
+
+    Args:
+    - p: probability of the image being blurred.
+    - radius: radius of the Gaussian blur kernel.
+    """
+
+    def __init__(self, p=0.5, radius=2):
+        self.p = p
+        self.radius = radius
+
+    def __call__(self, img : Image, lbl : Image) -> (Image, Image):
+        if random.random() < self.p:
+            return F.gaussian_blur(img, self.radius), lbl
+        return img, lbl  
+
+# COLOR ADJUSTMENTS
+
+class ExtColorJitter(ExtTransforms):
+    """
+    Randomly change the brightness, contrast and saturation of an image.
+
+    Args:
+    - brightness (float or tuple of float (min, max)): How much to jitter brightness.
             brightness_factor is chosen uniformly from [max(0, 1 - brightness), 1 + brightness]
             or the given [min, max]. Should be non negative numbers.
-        contrast (float or tuple of float (min, max)): How much to jitter contrast.
+    - contrast (float or tuple of float (min, max)): How much to jitter contrast.
             contrast_factor is chosen uniformly from [max(0, 1 - contrast), 1 + contrast]
             or the given [min, max]. Should be non negative numbers.
-        saturation (float or tuple of float (min, max)): How much to jitter saturation.
+    - saturation (float or tuple of float (min, max)): How much to jitter saturation.
             saturation_factor is chosen uniformly from [max(0, 1 - saturation), 1 + saturation]
             or the given [min, max]. Should be non negative numbers.
-        hue (float or tuple of float (min, max)): How much to jitter hue.
+    - hue (float or tuple of float (min, max)): How much to jitter hue.
             hue_factor is chosen uniformly from [-hue, hue] or the given [min, max].
             Should have 0<= hue <= 0.5 or -0.5 <= min <= max <= 0.5.
     """
@@ -180,7 +274,6 @@ class Lambda(object):
     def __repr__(self):
         return self.__class__.__name__ + '()'
 
-
 class Compose(object):
     """Composes several transforms together.
     Args:
@@ -207,18 +300,22 @@ class Compose(object):
             format_string += '    {0}'.format(t)
         format_string += '\n)'
         return format_string
-	
-class ExtRandomCrop(object):
-    """Crop the given PIL Image at a random location.
+
+# CROPPING
+
+class ExtRandomCrop(ExtTransforms):
+    """
+    Crop the given PIL Image at a random location.
+
     Args:
-        size (sequence or int): Desired output size of the crop. If size is an
+    - size (sequence or int): Desired output size of the crop. If size is an
             int instead of sequence like (h, w), a square crop (size, size) is
             made.
-        padding (int or sequence, optional): Optional padding on each border
+    - padding (int or sequence, optional): Optional padding on each border
             of the image. Default is 0, i.e no padding. If a sequence of length
             4 is provided, it is used to pad left, top, right, bottom borders
             respectively.
-        pad_if_needed (boolean): It will pad the image if smaller than the
+    - pad_if_needed (boolean): It will pad the image if smaller than the
             desired size to avoid raising an exception.
     """
 
@@ -278,24 +375,3 @@ class ExtRandomCrop(object):
 
     def __repr__(self):
         return self.__class__.__name__ + '(size={0}, padding={1})'.format(self.size, self.padding)
-    
-class ExtGaussianBlur(object):
-		"""Gaussian blur augmentation in SimCLR https://arxiv.org/abs/2002.05709
-		Args:
-				sigma (float): Standard deviation to be passed to `gaussian_blur`.
-		"""
-		def __init__(self, sigma=[.1, 2.]):
-				self.sigma = sigma
-
-		def __call__(self, img : Image, lbl : Image) -> (Image, Image):
-				"""
-				Args:
-						img (PIL Image): Image to be blurred.
-				Returns:
-						PIL Image: Gaussian blurred image.
-				"""
-				sigma = random.uniform(self.sigma[0], self.sigma[1])
-				return F.gaussian_blur(img, sigma), lbl
-
-		def __repr__(self):
-				return self.__class__.__name__ + '(sigma={0})'.format(self.sigma)
