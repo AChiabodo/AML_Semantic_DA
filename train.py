@@ -72,13 +72,13 @@ def train_da(args, model, optimizer, source_dataloader_train, target_dataloader_
     writer = SummaryWriter(comment=comment)
     scaler = amp.GradScaler()
     d_lr = 1e-4
-    max_lam = 0.004
+    max_lam = 0.0025
     discr = torch.nn.DataParallel(BiSeNetDiscriminator(num_classes=args.num_classes)).cuda()
     discr_optim = torch.optim.Adam(discr.parameters(), lr=d_lr, betas=(0.9, 0.99))
 
     loss_func = torch.nn.CrossEntropyLoss(ignore_index=255)
-    #discr_loss_func = torch.nn.MSELoss()
-    discr_loss_func = torch.nn.BCEWithLogitsLoss()
+    discr_loss_func = torch.nn.MSELoss()
+    #discr_loss_func = torch.nn.BCEWithLogitsLoss()
     
     max_miou = 0
     step = 0
@@ -197,7 +197,6 @@ def train_da(args, model, optimizer, source_dataloader_train, target_dataloader_
         tq.close()
         loss_train_mean = np.mean(loss_record)
         writer.add_scalar('epoch/loss_epoch_train', float(loss_train_mean), epoch)
-#       writer.add_scalar('epoch/loss_epoch_discr', float(d_loss), epoch)
         writer.add_scalar('epoch/loss_epoch_discr', float(np.mean(loss_discr_record)), epoch)
         writer.add_scalar('train/lambda', float(lam), epoch)
         writer.add_scalar('train/discr_lr', float(discr_lr), epoch)
@@ -227,11 +226,10 @@ def train_da(args, model, optimizer, source_dataloader_train, target_dataloader_
 
 
 def train(args, model, optimizer, dataloader_train, dataloader_val, comment=''):
-    #writer = SummaryWriter(comment=''.format(args.optimizer))
     writer = SummaryWriter(comment=comment)
     scaler = amp.GradScaler()
 
-    loss_func = torch.nn.CrossEntropyLoss(ignore_index=255) #we should check if it's the right index to ignore, is it 255 or 19?
+    loss_func = torch.nn.CrossEntropyLoss(ignore_index=255)
     max_miou = 0
     step = 0
     for epoch in range(args.num_epochs):
@@ -356,17 +354,13 @@ def parse_args():
                        type=int,
                        default=1024,
                        help='Width of cropped/resized input image to modelwork')
-    # parse.add_argument('--crop_ratio',
-    #                    type=float,
-    #                    default=0.5,
-    #                    help='Ratio of cropped image (width and height) to input image')
     parse.add_argument('--batch_size',
                        type=int,
                        default=4, #2
                        help='Number of images in each batch')
     parse.add_argument('--learning_rate',
                         type=float,
-                        default=0.01, #0.01
+                        default=0.001, #0.01
                         help='learning rate used for train')
     parse.add_argument('--num_workers',
                        type=int,
@@ -420,6 +414,7 @@ def parse_args():
 
 # --dataset GTA5 --data_transformations 0 --batch_size 10 --learning_rate 0.01 --num_epochs 50 --save_model_path trained_models\test_print_features --resume False --comment test_print_features--mode train
 # --mode train_da --dataset CROSS_DOMAIN --save_model_path trained_models\adv_single_layer_lam0.001_softmax_resumed --comment adv_single_layer_lam0.005_softmax --data_transformation 0 --batch_size 4 --learning_rate 0.002 --num_workers 4 --optimizer sgd --resume True --resume_model_path trained_models\avd_single_layer_lam0.005_softmax\best.pth
+# & C:/Users/aless/Documents/Codice/AML_Semantic_DA/.venv/Scripts/python.exe c:/Users/aless/Documents/Codice/AML_Semantic_DA/train.py --mode train_da --dataset CROSS_DOMAIN --save_model_path trained_models\adv_single_layer_lam0.0025_MSELoss --comment adv_single_layer_lam0.0025_MSELoss --data_transformation 1 --batch_size 5 --learning_rate 0.0025 --num_workers 4 --optimizer sgd --resume True --resume_model_path trained_models\avd_single_layer_lam0.005_softmax\best.pth --crop_height 526 --crop_width 957
 def main():
     args = parse_args()
 
@@ -436,7 +431,7 @@ def main():
             target_transformations = ExtCompose([ExtScale(0.5,interpolation=Image.Resampling.BILINEAR), ExtToTensor()])
         case 1:
             transformations = ExtCompose([ExtScale(random.choice([0.75,1,1.25,1.5,1.75,2]),interpolation=Image.Resampling.BILINEAR),ExtRandomHorizontalFlip(),ExtRandomCrop((args.crop_height, args.crop_width)), ExtToTensor()])
-            target_transformations = ExtCompose([ExtScale(random.choice([0.75,1,1.25,1.5,1.75,2]),interpolation=Image.Resampling.BILINEAR),ExtRandomCrop((512, 1024)), ExtToTensor()])
+            target_transformations = ExtCompose([ExtScale(0.5,interpolation=Image.Resampling.BILINEAR), ExtToTensor()])
     eval_transformations = ExtCompose([ExtScale(0.5,interpolation=Image.Resampling.BILINEAR), ExtToTensor()])
     
     if args.dataset == 'CITYSCAPES':
@@ -452,7 +447,7 @@ def main():
     elif args.dataset == 'CROSS_DOMAIN':
         print('training on GTA and validating on Cityscapes')
         train_dataset = GTA5(root='dataset',transforms=transformations)
-        target_dataset_train = CityScapes(split = 'train',transforms=transformations)
+        target_dataset_train = CityScapes(split = 'train',transforms=target_transformations)
         val_dataset = CityScapes(split = 'val',transforms=eval_transformations)
     else:
         print('not supported dataset \n')
