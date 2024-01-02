@@ -3,7 +3,7 @@
 from model.model_stages import BiSeNet, BiSeNetDiscriminator
 from cityscapes import CityScapes
 from GTA5 import GTA5
-from utils import ExtCompose, ExtResize, ExtToTensor, ExtTransforms, ExtRandomHorizontalFlip , ExtScale , ExtRandomCrop
+from data_augmentation import ExtCompose, ExtResize, ExtToTensor, ExtTransforms, ExtRandomHorizontalFlip , ExtScale , ExtRandomCrop
 import torch
 from torch.utils.data import DataLoader
 import logging
