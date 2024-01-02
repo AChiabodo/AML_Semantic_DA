@@ -307,110 +307,137 @@ def str2bool(v):
         raise argparse.ArgumentTypeError('Unsupported value encountered.')
 
 
+
 def parse_args():
+    """Parse input arguments from command line"""
     parse = argparse.ArgumentParser()
 
     parse.add_argument('--mode',
                        dest='mode',
                        type=str,
                        default='train_da',
+                       help='Select between simple training (train), training with Domain Adaptation (train_da) or testing an already trained model (test)'
     )
-
     parse.add_argument('--backbone',
                        dest='backbone',
                        type=str,
-                       default='CatmodelSmall',
+                       default='STDCNet813',
+                       help='Select the backbone to use for the model. Supported backbones: STDCNet813'
     )
     parse.add_argument('--pretrain_path',
                       dest='pretrain_path',
                       type=str,
                       default='pretrained_weights\STDCNet813M_73.91.tar',
+                      help='Path to the pretrained weights of the backbone'
     )
     parse.add_argument('--use_conv_last',
                        dest='use_conv_last',
                        type=str2bool,
                        default=False,
+                       help='Whether to use the last convolutional layer of the backbone'
     )
     parse.add_argument('--num_epochs',
-                       type=int, default=50,#300
-                       help='Number of epochs to train for')
+                       type=int, 
+                       default=50,
+                       help='Number of epochs to train the model'
+    )
     parse.add_argument('--epoch_start_i',
                        type=int,
                        default=0,
-                       help='Start counting epochs from this number')
+                       help='Start counting epochs from this number. Useful to resume training from a checkpoint'
+    )
     parse.add_argument('--checkpoint_step',
                        type=int,
                        default=10,
-                       help='How often to save checkpoints (epochs)')
+                       help='How often (epochs) to save a checkpoint of the model'
+    )
     parse.add_argument('--validation_step',
                        type=int,
                        default=5,
-                       help='How often to perform validation (epochs)')
+                       help='How often (epochs) to evaluate the model on the validation set to check its performance'
+    )
     parse.add_argument('--crop_height',
                        type=int,
                        default=512,
-                       help='Height of cropped/resized input image to modelwork')
+                       help='Height of cropped/resized input image to model'
+    )
     parse.add_argument('--crop_width',
                        type=int,
                        default=1024,
-                       help='Width of cropped/resized input image to modelwork')
+                       help='Width of cropped/resized input image to model'
+    )
     parse.add_argument('--batch_size',
                        type=int,
                        default=4, #2
-                       help='Number of images in each batch')
+                       help='Number of images in each batch'
+    )
     parse.add_argument('--learning_rate',
                         type=float,
                         default=0.001, #0.01
-                        help='learning rate used for train')
+                        help='learning rate used during training to adjust the weights of the model'
+    )
     parse.add_argument('--num_workers',
                        type=int,
-                       default=4, #4
-                       help='num of workers')
+                       default=4,
+                       help='Number of threads used to load the data during training'
+    )
     parse.add_argument('--num_classes',
                        type=int,
-                       default=19,#19
-                       help='num of object classes (with void)')
+                       default=19,
+                       help='Number of semantic classes to predict'
+    )
     parse.add_argument('--cuda',
                        type=str,
                        default='0',
-                       help='GPU ids used for training')
+                       help='GPU id used for training'
+    )
     parse.add_argument('--use_gpu',
                        type=bool,
                        default=True,
-                       help='whether to user gpu for training')
+                       help='whether to user gpu for training'
+    )
     parse.add_argument('--save_model_path',
                        type=str,
                        default='trained_models',
-                       help='path to save model')
+                       help='path to save the trained model'
+    )
     parse.add_argument('--optimizer',
                        type=str,
                        default='adam',
-                       help='optimizer, support rmsprop, sgd, adam')
+                       help='optimizer to use for training (adam, sgd, rmsprop are supported)'
+    )
     parse.add_argument('--loss',
                        type=str,
                        default='crossentropy',
-                       help='loss function')
+                       help='loss function to use for training (crossentropy, dice are supported)'
+    )
     parse.add_argument('--resume',
                        type=str2bool,
                        default=False,
-                       help='Define if the model should be trained from scratch or from a trained model')
-    parse.add_argument('--dataset',
-                          type=str,
-                          default='CROSS_DOMAIN',
-                          help='CityScapes, GTA5 or CROSS_DOMAIN. Define on which dataset the model should be trained and evaluated.')
+                       help='Define if the model should be trained from scratch or from a checkpoint'
+    )
     parse.add_argument('--resume_model_path',
                        type=str,
                        default='',
-                       help='Define the path to the model that should be loaded for training. If void, the last model will be loaded.')
+                       help='Define the path to the model that should be loaded for training. If void, the best model trained so far will be loaded'
+    )
+    parse.add_argument('--dataset',
+                          type=str,
+                          default='CROSS_DOMAIN',
+                          help='CityScapes, GTA5 or CROSS_DOMAIN. Define on which dataset the model should be trained and evaluated.'
+    )
     parse.add_argument('--comment',
                        type=str,
                        default='test',
-                       help='Optional comment to add to the model name and to the log.')
+                       help='Comment to add to the log and on tensorboard to identify the model'
+    )
     parse.add_argument('--data_transformations',
                        type=int,
                        default=0,
-                       help='Select the data transformations to apply to the dataset. 0: no transformations, 1 : data augmentation')#1: random crop, 2: random crop and random horizontal flip, 3: random crop and random scale, 4: random crop, random horizontal flip and random scale.')
+                       help='Select transformations to be applied on the dataset images (0: no transformations, 1 : data augmentation)'
+    )
     return parse.parse_args()
+
 
 # --dataset GTA5 --data_transformations 0 --batch_size 10 --learning_rate 0.01 --num_epochs 50 --save_model_path trained_models\test_print_features --resume False --comment test_print_features--mode train
 # --mode train_da --dataset CROSS_DOMAIN --save_model_path trained_models\adv_single_layer_lam0.001_softmax_resumed --comment adv_single_layer_lam0.005_softmax --data_transformation 0 --batch_size 4 --learning_rate 0.002 --num_workers 4 --optimizer sgd --resume True --resume_model_path trained_models\avd_single_layer_lam0.005_softmax\best.pth
