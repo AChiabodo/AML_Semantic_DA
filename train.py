@@ -416,24 +416,45 @@ def parse_args():
 # --mode train_da --dataset CROSS_DOMAIN --save_model_path trained_models\adv_single_layer_lam0.001_softmax_resumed --comment adv_single_layer_lam0.005_softmax --data_transformation 0 --batch_size 4 --learning_rate 0.002 --num_workers 4 --optimizer sgd --resume True --resume_model_path trained_models\avd_single_layer_lam0.005_softmax\best.pth
 # & C:/Users/aless/Documents/Codice/AML_Semantic_DA/.venv/Scripts/python.exe c:/Users/aless/Documents/Codice/AML_Semantic_DA/train.py --mode train_da --dataset CROSS_DOMAIN --save_model_path trained_models\adv_single_layer_lam0.0025_MSELoss --comment adv_single_layer_lam0.0025_MSELoss --data_transformation 1 --batch_size 5 --learning_rate 0.0025 --num_workers 4 --optimizer sgd --resume True --resume_model_path trained_models\avd_single_layer_lam0.005_softmax\best.pth --crop_height 526 --crop_width 957
 def main():
+
+    # 1. Initialization
     args = parse_args()
 
-    ## dataset
+    # 
     n_classes = args.num_classes
     args.dataset = args.dataset.upper()
     # to be changed
     if args.dataset == 'GTA5':
         args.crop_height, args.crop_width = 526 , 957
     
+    # 2. Data Transformations Selection
     match args.data_transformations:
         case 0:
+            """
+            No Data Augmentation
+            - Images are resized to 0.5 of their original size to reduce computational cost
+            - No extra transformations are applied to the dataset
+            """
             transformations = ExtCompose([ExtScale(0.5,interpolation=Image.Resampling.BILINEAR), ExtToTensor()]) #ExtRandomHorizontalFlip(),
             target_transformations = ExtCompose([ExtScale(0.5,interpolation=Image.Resampling.BILINEAR), ExtToTensor()])
         case 1:
-            transformations = ExtCompose([ExtScale(random.choice([0.75,1,1.25,1.5,1.75,2]),interpolation=Image.Resampling.BILINEAR),ExtRandomHorizontalFlip(),ExtRandomCrop((args.crop_height, args.crop_width)), ExtToTensor()])
+            """
+            Data Augmentation
+            - Images are resized to 0.5 of their original size to reduce computational cost
+            - Randomly flipped horizontally
+            - Randomly cropped to the desired size
+            """
+            transformations = ExtCompose([
+                ExtScale(random.choice([0.75,1,1.25,1.5,1.75,2]),interpolation=Image.Resampling.BILINEAR),
+                ExtRandomHorizontalFlip(),
+                ExtRandomCrop((args.crop_height, args.crop_width)),
+                ExtToTensor()])
             target_transformations = ExtCompose([ExtScale(0.5,interpolation=Image.Resampling.BILINEAR), ExtToTensor()])
+    
+    """The Validation Set is also resized to 0.5 of its original size"""
     eval_transformations = ExtCompose([ExtScale(0.5,interpolation=Image.Resampling.BILINEAR), ExtToTensor()])
     
+    # 3. Datasets Selection
     if args.dataset == 'CITYSCAPES':
         print('training on CityScapes')
         train_dataset = CityScapes(split = 'train',transforms=transformations)
@@ -453,6 +474,7 @@ def main():
         print('not supported dataset \n')
         return None
     
+    # 4. Dataloaders Setup
     source_dataloader_train = DataLoader(train_dataset,
                     batch_size=args.batch_size,
                     shuffle=False,
@@ -471,13 +493,19 @@ def main():
                        shuffle=False,
                        num_workers=args.num_workers,
                        drop_last=False)
+    
+    # 5. Model Setup
     model = BiSeNet(backbone=args.backbone, n_classes=n_classes, pretrain_model=args.pretrain_path, use_conv_last=args.use_conv_last)
     
-    
+    # 6. Resume Model from Checkpoint
     if args.resume or args.mode == 'test':
         try:
+            # 6.1. If no model path is specified
             if args.resume_model_path == '':
+                # Load the best model trained so far
                 args.resume_model_path = os.path.join(args.save_model_path, 'best.pth')
+                print('No model path specified. Loading the best model trained so far: {}'.format(args.resume_model_path))
+            # 6.2. Load the model
             model.load_state_dict(torch.load(args.resume_model_path))
             print('successfully resume model from %s' % args.resume_model_path)
         except Exception as e:
@@ -485,35 +513,57 @@ def main():
             print('resume failed, try again')
             return None
 
+    # 7. GPU Parallelization
     if torch.cuda.is_available() and args.use_gpu:
         model = torch.nn.DataParallel(model).cuda()
 
-    ## optimizer
-    # build optimizer
+    # 8. Optimizer Selection
     if args.optimizer == 'rmsprop':
+        """
+        Root Mean Square Propagation
+        - Adapts learning rates based on moving average of squared gradients
+        - Good for noisy or non-stationary objectives
+        """
         optimizer = torch.optim.RMSprop(model.parameters(), args.learning_rate)
     elif args.optimizer == 'sgd':
+        """
+        Stochastic Gradient Descent
+        - Fixed learning rate, requires manual tuning
+        - Momentum can be added to accelerate gradients in the right direction
+        - Weight decay can be added to regularize the weights
+        """
         optimizer = torch.optim.SGD(model.parameters(), args.learning_rate, momentum=0.9, weight_decay=1e-4)
     elif args.optimizer == 'adam':
+        """
+        Adaptive Moment Estimation
+        - Computes adaptive learning rates for each parameter
+        - Incorporates momentum to escape local minima
+        - Well suited for problems with large datasets and parameters
+        """
         optimizer = torch.optim.Adam(model.parameters(), args.learning_rate)
-    else:  # rmsprop
+    else:
         print('not supported optimizer \n')
         return None
     
+    # 9. Comment for Tensorboard
     if args.comment == '':
         args.comment = "_{}_{}_{}_{}".format(args.mode,args.dataset,args.batch_size,args.learning_rate)
 
+    # 10. Start Training or Evaluation
     match args.mode:
         case 'train':
-            ## train loop
+            # 10.1. Simple Training on Source Dataset
             train(args, model, optimizer, source_dataloader_train, dataloader_val, comment="_{}_{}_{}_{}".format(args.mode,args.dataset,args.batch_size,args.learning_rate))
         case 'train_da':
+            # 10.2. Training with Domain Adaptation
             train_da(args, model, optimizer, source_dataloader_train, target_dataloader_train, dataloader_val, comment=args.comment)
         case 'test':
+            # 10.3. Evaluation of an already trained model on the Validation Set
             writer = SummaryWriter(comment=args.comment)
             val(args, model, dataloader_val,writer=writer,epoch=0,step=0)
         case _:
             print('not supported mode \n')
             return None
+
 if __name__ == "__main__":
     main()
