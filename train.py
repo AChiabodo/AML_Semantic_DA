@@ -251,11 +251,12 @@ def train_da(args, model, optimizer, source_dataloader_train, target_dataloader_
 
 def train(args, model, optimizer, dataloader_train, dataloader_val, comment=''):
     """
-    Train the model on the selected dataset
-    - Option 1: Simple Training, to get a baseline
-    - Option 2: Data Augmentation, to improve the performance of the model
+    Train the model on the selected training set and evaluate it on the validation set.
+    In the end, save the best model according to the mIoU on the validation set.
 
-    Save the model that performs best on the validation set
+    Depending on the previously setted dataloader, this function can be used for:
+    - Option 1: Simple Training, to get a baseline
+    - Option 2: Training with Data Augmentation, to improve the performance of the model
     """
 
     # 1. Initialization
@@ -265,7 +266,7 @@ def train(args, model, optimizer, dataloader_train, dataloader_val, comment=''):
     max_miou = 0 # Best mIoU on the validation set
     step = 0 # Number of iterations
 
-    # 2. Training Loop for each epoch
+    # 2. Training Loop 
     for epoch in range(args.num_epochs):
 
         # 2.1. Adjust Learning Rate
@@ -287,12 +288,14 @@ def train(args, model, optimizer, dataloader_train, dataloader_val, comment=''):
             optimizer.zero_grad()
 
             with amp.autocast():
+                # 2.4.1. Forward pass -> multi-scale outputs
                 output, out16, out32 = model(data)
                 loss1 = loss_func(output, label.squeeze(1))
                 loss2 = loss_func(out16, label.squeeze(1))
                 loss3 = loss_func(out32, label.squeeze(1))
                 loss = loss1 + loss2 + loss3
 
+                # 2.4.2. Save the randomly selected image in the batch to tensorboard
                 if i == image_number and epoch % 2 == 0: #saves the first image in the batch to tensorboard
                     print('epoch {}, iter {}, loss1: {}, loss2: {}, loss3: {}'.format(epoch, i, loss1, loss2, loss3))
                     colorized_predictions , colorized_labels = CityScapes.visualize_prediction(output, label)
@@ -305,12 +308,16 @@ def train(args, model, optimizer, dataloader_train, dataloader_val, comment=''):
                     writer.add_image('epoch%d/iter%d/predicted_labels_16' % (epoch, i), np.array(colorized_predictions_16), step, dataformats='HWC')
                     writer.add_image('epoch%d/iter%d/predicted_labels_32' % (epoch, i), np.array(colorized_predictions_32), step, dataformats='HWC')
 
+            # 2.4.3. Backward pass
             scaler.scale(loss).backward()
             scaler.step(optimizer)
             scaler.update()
 
+            # 2.4.4. Update the progress bar
             tq.update(args.batch_size)
             tq.set_postfix(loss='%.6f' % loss)
+
+            # 2.4.5. Save the loss for the batch
             step += 1
             writer.add_scalar('loss_step', loss, step)
             loss_record.append(loss.item())
