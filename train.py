@@ -21,6 +21,7 @@ from PIL import Image
 
 logger = logging.getLogger()
 
+
 def val(args, model, dataloader, writer = None , epoch = None, step = None):
     print('start val!')
     with torch.no_grad():
@@ -67,6 +68,29 @@ def val(args, model, dataloader, writer = None , epoch = None, step = None):
         print(f'mIoU per class: {miou_list}')
 
         return precision, miou
+
+def evaluate_and_save_model(args, model, dataloader_val, writer, epoch, step, max_miou):
+    """
+    Evaluate the model and save it if performance has improved.
+
+    Args:
+    - ...
+    - max_miou: Maximum mean Intersection over Union achieved so far.
+
+    Returns:
+    - Updated max_miou after evaluation.
+    """
+    precision, miou = val(args, model, dataloader_val, writer, epoch, step)
+    if miou > max_miou:
+        max_miou = miou
+        os.makedirs(args.save_model_path, exist_ok=True)
+        torch.save(model.module.state_dict(), os.path.join(args.save_model_path, 'best.pth'))
+
+    writer.add_scalar('epoch/precision_val', precision, epoch)
+    writer.add_scalar('epoch/miou_val', miou, epoch)
+
+    return max_miou
+
 
 def train_da(args, model, optimizer, source_dataloader_train, target_dataloader_train, target_dataloader_val, comment='', layer=0):
     #writer = SummaryWriter(comment=''.format(args.optimizer))
@@ -225,7 +249,6 @@ def train_da(args, model, optimizer, source_dataloader_train, target_dataloader_
     writer.add_scalar('epoch/precision_val', precision, epoch)
     writer.add_scalar('epoch/miou val', miou, epoch)
 
-
 def train(args, model, optimizer, dataloader_train, dataloader_val, comment=''):
     """
     Train the model on the selected dataset
@@ -242,16 +265,22 @@ def train(args, model, optimizer, dataloader_train, dataloader_val, comment=''):
     max_miou = 0 # Best mIoU on the validation set
     step = 0 # Number of iterations
 
-    # 2. Training Loop
+    # 2. Training Loop for each epoch
     for epoch in range(args.num_epochs):
 
         # 2.1. Adjust Learning Rate
         lr = poly_lr_scheduler(optimizer, args.learning_rate, iter=epoch, max_iter=args.num_epochs)
+
+        # 2.2. Set up the model to train mode
         model.train()
         tq = tqdm(total=len(dataloader_train) * args.batch_size)
         tq.set_description('epoch %d, lr %f' % (epoch, lr))
-        loss_record = []
-        image_number = random.randint(0, len(dataloader_train) - 1)
+        loss_record = [] # Loss for each batch
+
+        # 2.3. Select a random image to save to tensorboard
+        image_number = random.randint(0, len(dataloader_train) - 1) 
+
+        # 2.4. Training Loop for each batch
         for i, (data, label) in enumerate(dataloader_train):
             data = data.cuda()
             label = label.long().cuda()
@@ -286,32 +315,24 @@ def train(args, model, optimizer, dataloader_train, dataloader_val, comment=''):
             writer.add_scalar('loss_step', loss, step)
             loss_record.append(loss.item())
         tq.close()
+
+        # 2.5. Save the average loss for the epoch
         loss_train_mean = np.mean(loss_record)
         writer.add_scalar('epoch/loss_epoch_train', float(loss_train_mean), epoch)
         print('loss for train : %f' % (loss_train_mean))
+
+        # 2.6. Save a checkpoint of the model every {args.checkpoint_step} epochs
         if epoch % args.checkpoint_step == 0 and epoch != 0:
             if not os.path.isdir(args.save_model_path):
                 os.mkdir(args.save_model_path)
             torch.save(model.module.state_dict(), os.path.join(args.save_model_path, 'latest.pth'))
 
+        # 2.7. Evaluate the model on the validation set every {args.validation_step} epochs
         if epoch % args.validation_step == 0 and epoch != 0:
-            precision, miou = val(args, model, dataloader_val, writer, epoch, step)
-            if miou > max_miou:
-                max_miou = miou
-                os.makedirs(args.save_model_path, exist_ok=True)
-                torch.save(model.module.state_dict(), os.path.join(args.save_model_path, 'best.pth'))
-            writer.add_scalar('epoch/precision_val', precision, epoch)
-            writer.add_scalar('epoch/miou val', miou, epoch)
+            max_miou = evaluate_and_save_model(args, model, dataloader_val, writer, epoch, step, max_miou)
     
     # 3. Final Evaluation
-    precision, miou = val(args, model, dataloader_val, writer, epoch, step)
-    if miou > max_miou:
-        max_miou = miou
-        os.makedirs(args.save_model_path, exist_ok=True)
-        torch.save(model.module.state_dict(), os.path.join(args.save_model_path, 'best.pth'))
-    writer.add_scalar('epoch/precision_val', precision, epoch)
-    writer.add_scalar('epoch/miou val', miou, epoch)
-
+    max_miou = evaluate_and_save_model(args, model, dataloader_val, writer, epoch, step, max_miou)
 
 ########
 # MAIN #
