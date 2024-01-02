@@ -227,13 +227,25 @@ def train_da(args, model, optimizer, source_dataloader_train, target_dataloader_
 
 
 def train(args, model, optimizer, dataloader_train, dataloader_val, comment=''):
-    writer = SummaryWriter(comment=comment)
-    scaler = amp.GradScaler()
+    """
+    Train the model on the selected dataset
+    - Option 1: Simple Training, to get a baseline
+    - Option 2: Data Augmentation, to improve the performance of the model
 
+    Save the model that performs best on the validation set
+    """
+
+    # 1. Initialization
+    writer = SummaryWriter(comment=comment) # Tensorboard writer
+    scaler = amp.GradScaler() # Automatic Mixed Precision
     loss_func = torch.nn.CrossEntropyLoss(ignore_index=255)
-    max_miou = 0
-    step = 0
+    max_miou = 0 # Best mIoU on the validation set
+    step = 0 # Number of iterations
+
+    # 2. Training Loop
     for epoch in range(args.num_epochs):
+
+        # 2.1. Adjust Learning Rate
         lr = poly_lr_scheduler(optimizer, args.learning_rate, iter=epoch, max_iter=args.num_epochs)
         model.train()
         tq = tqdm(total=len(dataloader_train) * args.batch_size)
@@ -290,7 +302,8 @@ def train(args, model, optimizer, dataloader_train, dataloader_val, comment=''):
                 torch.save(model.module.state_dict(), os.path.join(args.save_model_path, 'best.pth'))
             writer.add_scalar('epoch/precision_val', precision, epoch)
             writer.add_scalar('epoch/miou val', miou, epoch)
-    #final evaluation
+    
+    # 3. Final Evaluation
     precision, miou = val(args, model, dataloader_val, writer, epoch, step)
     if miou > max_miou:
         max_miou = miou
@@ -299,6 +312,10 @@ def train(args, model, optimizer, dataloader_train, dataloader_val, comment=''):
     writer.add_scalar('epoch/precision_val', precision, epoch)
     writer.add_scalar('epoch/miou val', miou, epoch)
 
+
+########
+# MAIN #
+########
 
 def parse_args():
     """Parse input arguments from command line"""
@@ -429,7 +446,6 @@ def parse_args():
                        help='Select transformations to be applied on the dataset images (0: no transformations, 1 : data augmentation)'
     )
     return parse.parse_args()
-
 
 # --dataset GTA5 --data_transformations 0 --batch_size 10 --learning_rate 0.01 --num_epochs 50 --save_model_path trained_models\test_print_features --resume False --comment test_print_features--mode train
 # --mode train_da --dataset CROSS_DOMAIN --save_model_path trained_models\adv_single_layer_lam0.001_softmax_resumed --comment adv_single_layer_lam0.005_softmax --data_transformation 0 --batch_size 4 --learning_rate 0.002 --num_workers 4 --optimizer sgd --resume True --resume_model_path trained_models\avd_single_layer_lam0.005_softmax\best.pth
@@ -568,16 +584,20 @@ def main():
     if args.comment == '':
         args.comment = "_{}_{}_{}_{}".format(args.mode,args.dataset,args.batch_size,args.learning_rate)
 
-    # 10. Start Training or Evaluation
+    # 10. Path to Pretrained Weights
+    if os.name == 'nt':
+        args.pretrain_path = args.pretrain_path.replace('\\','/')
+
+    # 11. Start Training or Evaluation
     match args.mode:
         case 'train':
-            # 10.1. Simple Training on Source Dataset
+            # 11.1. Simple Training on Source Dataset
             train(args, model, optimizer, source_dataloader_train, dataloader_val, comment="_{}_{}_{}_{}".format(args.mode,args.dataset,args.batch_size,args.learning_rate))
         case 'train_da':
-            # 10.2. Training with Domain Adaptation
+            # 11.2. Training with Domain Adaptation
             train_da(args, model, optimizer, source_dataloader_train, target_dataloader_train, dataloader_val, comment=args.comment)
         case 'test':
-            # 10.3. Evaluation of an already trained model on the Validation Set
+            # 11.3. Evaluation of an already trained model on the Validation Set
             writer = SummaryWriter(comment=args.comment)
             val(args, model, dataloader_val,writer=writer,epoch=0,step=0)
         case _:
