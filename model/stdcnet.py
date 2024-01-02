@@ -148,7 +148,7 @@ class STDCNet813(nn.Module):
 
     def init_weight(self, pretrain_model):
         print('load pretrained model {}'.format(pretrain_model))
-        state_dict = torch.load(pretrain_model)["state_dict"]
+        state_dict = torch.load(pretrain_model, map_location=torch.device('cpu'))["state_dict"]
         self_state_dict = self.state_dict()
         for k, v in state_dict.items():
             self_state_dict.update({k: v})

@@ -192,7 +192,7 @@ def parse_args():
                        help='Width of cropped/resized input image to modelwork')
     parse.add_argument('--batch_size',
                        type=int,
-                       default=10, #2
+                       default=2,
                        help='Number of images in each batch')
     parse.add_argument('--learning_rate',
                         type=float,
@@ -232,7 +232,7 @@ def parse_args():
                        help='Define if the model should be trained from scratch or from a trained model')
     parse.add_argument('--op_mode',
                           type=str,
-                          default='GTA5',
+                          default='CityScapes',
                           help='CityScapes, GTA5 or CROSS_DOMAIN. Define on which dataset the model should be trained and evaluated.')
     parse.add_argument('--resume_model_path',
                        type=str,
@@ -285,7 +285,7 @@ def main():
                        drop_last=False)
     model = BiSeNet(backbone=args.backbone, n_classes=n_classes, pretrain_model=args.pretrain_path, use_conv_last=args.use_conv_last)
     
-    if args.resume == 'True':
+    if args.resume == 'False':
         try:
             if args.resume_model_path == '':
                 args.resume_model_path = os.path.join(args.save_model_path, 'best.pth')
@@ -310,13 +310,13 @@ def main():
     else:  # rmsprop
         print('not supported optimizer \n')
         return None
-    match args.mode :
-        case 'train':
-            ## train loop
-            train(args, model, optimizer, dataloader_train, dataloader_val)
-        case 'test':
+    if args.mode == 'train':
+    # train code
+        ## train loop
+        train(args, model, optimizer, dataloader_train, dataloader_val)
+    elif args.mode == 'test':
             val(args, model, dataloader_val)
-        case _:
+    else :
             print('not supported mode \n')
             return None
 if __name__ == "__main__":
