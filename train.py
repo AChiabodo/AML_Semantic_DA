@@ -16,7 +16,9 @@ from utils import reverse_one_hot, compute_global_accuracy, fast_hist, per_class
 from tqdm import tqdm
 import random
 import os
-from PIL import Image
+from PIL import Image as PILImage
+from torchvision.transforms import InterpolationMode
+
 
 logger = logging.getLogger()
 
@@ -251,8 +253,10 @@ def main():
         args.crop_height, args.crop_width = 526 , 957
     
     #transformations = ExtCompose([ExtResize((args.crop_height, args.crop_width)), ExtToTensor()]) #ExtRandomHorizontalFlip(),
-    transformations = ExtCompose([ExtScale(0.5,interpolation=Image.Resampling.BICUBIC), ExtToTensor()])
-    eval_transformations = ExtCompose([ExtScale(0.5,interpolation=Image.Resampling.BICUBIC), ExtToTensor()])
+
+    transformations = ExtCompose([ExtScale(0.5, interpolation=InterpolationMode.BICUBIC), ExtToTensor()])
+
+    eval_transformations = ExtCompose([ExtScale(0.5,interpolation=InterpolationMode.BICUBIC), ExtToTensor()])
     
     if args.op_mode == 'CityScapes':
         print('training on CityScapes')

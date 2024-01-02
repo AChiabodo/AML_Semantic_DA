@@ -10,6 +10,8 @@ import torchvision
 
 from PIL import Image
 
+from torchvision.transforms import InterpolationMode
+
 def poly_lr_scheduler(optimizer, init_lr, iter, lr_decay_iter=1,
                       max_iter=300, power=0.9):
 	"""Polynomial decay of learning rate
@@ -350,7 +352,7 @@ class ExtRandomHorizontalFlip(ExtTransforms):
 
 class ExtScale(ExtTransforms):
 
-    def __init__(self, scale : float = 0.5, interpolation=Image.BILINEAR):
+    def __init__(self, scale : float = 0.5, interpolation=InterpolationMode.BICUBIC):
         self.scale = scale
         self.interpolation = interpolation
 
