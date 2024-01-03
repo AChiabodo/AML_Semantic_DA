@@ -3,7 +3,7 @@
 from model.model_stages import BiSeNet, BiSeNetDiscriminator
 from cityscapes import CityScapes
 from GTA5 import GTA5
-from data_augmentation import ExtCompose, ExtResize, ExtToTensor, ExtTransforms, ExtRandomHorizontalFlip , ExtScale , ExtRandomCrop
+from data_augmentation import ExtCompose, ExtToTensor, ExtRandomHorizontalFlip , ExtScale , ExtRandomCrop, ExtGaussianBlur, ExtColorJitter
 import torch
 from torch.utils.data import DataLoader
 import logging
@@ -502,18 +502,36 @@ def main():
             target_transformations = ExtCompose([ExtScale(0.5,interpolation=Image.Resampling.BILINEAR), ExtToTensor()])
         case 1:
             """
-            Data Augmentation
-            - Images are resized to 0.5 of their original size to reduce computational cost
-            - Randomly flipped horizontally
-            - Randomly cropped to the desired size
+            Feeble Data Augmentation
+            - Images from GTA5 are first enlarged and then cropped to the half of their original size
+                1. To pay attention to the details of the images
+                2. To reduce computational cost
+            - Images are randomly flipped horizontally
             """
             transformations = ExtCompose([
                 ExtScale(random.choice([0.75,1,1.25,1.5,1.75,2]),interpolation=Image.Resampling.BILINEAR),
-                ExtRandomHorizontalFlip(),
                 ExtRandomCrop((args.crop_height, args.crop_width)),
+                ExtRandomHorizontalFlip(),
                 ExtToTensor()])
             target_transformations = ExtCompose([ExtScale(0.5,interpolation=Image.Resampling.BILINEAR), ExtToTensor()])
-    
+        case 2:
+            """
+            Precise Data Augmentation
+            - Images from GTA5 are first enlarged and then cropped to the half of their original size
+                1. To pay attention to the details of the images
+                2. To reduce computational cost
+            - Images are randomly flipped horizontally
+            - Images are randomly blurred
+            - Images are randomly color jittered
+            """
+            transformations = ExtCompose([
+                ExtScale(random.choice([0.75,1,1.25,1.5,1.75,2]),interpolation=Image.Resampling.BILINEAR),
+                ExtRandomCrop((args.crop_height, args.crop_width)),
+                ExtRandomHorizontalFlip(),
+                ExtGaussianBlur(),
+                ExtColorJitter(p=0.5, brightness=0.2, contrast=0.1, saturation=0.1, hue=0.2),
+                ExtToTensor()])
+            target_transformations = ExtCompose([ExtScale(0.5,interpolation=Image.Resampling.BILINEAR), ExtToTensor()])
     """The Validation Set is also resized to 0.5 of its original size"""
     eval_transformations = ExtCompose([ExtScale(0.5,interpolation=Image.Resampling.BILINEAR), ExtToTensor()])
     

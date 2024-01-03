@@ -169,6 +169,7 @@ class ExtColorJitter(ExtTransforms):
     Randomly change the brightness, contrast and saturation of an image.
 
     Args:
+    - p: probability of the image being color jittered
     - brightness (float or tuple of float (min, max)): How much to jitter brightness.
             brightness_factor is chosen uniformly from [max(0, 1 - brightness), 1 + brightness]
             or the given [min, max]. Should be non negative numbers.
@@ -182,7 +183,8 @@ class ExtColorJitter(ExtTransforms):
             hue_factor is chosen uniformly from [-hue, hue] or the given [min, max].
             Should have 0<= hue <= 0.5 or -0.5 <= min <= max <= 0.5.
     """
-    def __init__(self, brightness=0, contrast=0, saturation=0, hue=0):
+    def __init__(self, p=0.5, brightness=0, contrast=0, saturation=0, hue=0):
+        self.p = p
         self.brightness = self._check_input(brightness, 'brightness')
         self.contrast = self._check_input(contrast, 'contrast')
         self.saturation = self._check_input(saturation, 'saturation')
@@ -246,9 +248,11 @@ class ExtColorJitter(ExtTransforms):
         Returns:
             PIL Image: Color jittered image.
         """
-        transform = self.get_params(self.brightness, self.contrast,
-                                    self.saturation, self.hue)
-        return transform(img), lbl
+        if random.random() < self.p:
+          transform = self.get_params(self.brightness, self.contrast,
+                                      self.saturation, self.hue)
+          return transform(img), lbl
+        return img, lbl
 
     def __repr__(self):
         format_string = self.__class__.__name__ + '('
