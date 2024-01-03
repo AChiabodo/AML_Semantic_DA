@@ -165,27 +165,41 @@ def train_da(args, model, optimizer, source_dataloader_train, target_dataloader_
     max_miou = 0
     step = 0
     for epoch in range(args.num_epochs):
+
+        # 4.1. Adjust Learning Rates
         lr = poly_lr_scheduler(optimizer, args.learning_rate, iter=epoch, max_iter=args.num_epochs)
         discr_lr = poly_lr_scheduler(discr_optim, d_lr, iter=epoch, max_iter=args.num_epochs)
+
+        # 4.2. Adjust Lambda
         #lam = max_lam * ((epoch) / args.num_epochs) ** 0.9
         #lam = max_lam if epoch > 10 else max_lam * ( 1 + ((epoch - 10) / (args.num_epochs)))
         lam = (max_lam) #* (1 + np.sin(np.pi / 2 * epoch / 50)) / 2
+
+        # 4.3. Set up the model to train mode
         model.train()
         tq = tqdm(total=min(len(source_dataloader_train),len(target_dataloader_train)) * args.batch_size)
         tq.set_description('epoch %d,G-lr %f, D-lr %f, lam %f' % (epoch, lr, discr_lr, lam))
+        # Losses for each batch
         loss_record = []
         loss_discr_record = []
-        image_number = random.randint(0, min(len(source_dataloader_train),len(target_dataloader_train)) - 1)
-
+        # Utility functions
         softmax_func = torch.nn.functional.softmax
         dsource_labels , dtarget_labels = torch.ones , torch.zeros
 
+        # 4.4. Select a random image to save to tensorboard
+        image_number = random.randint(0, min(len(source_dataloader_train),len(target_dataloader_train)) - 1)
+
+        # 4.5. Training Loop for each batch
         for i, (source_data, target_data) in enumerate(zip(source_dataloader_train,target_dataloader_train)):
+
+            # 4.5.1. Load data and label to GPU
             source_data,source_label = source_data
             target_data,_ = target_data
             source_data = source_data.cuda()
             source_label = source_label.long().cuda()
             target_data = target_data.cuda()
+
+            # 4.5.2. Zero the gradients
             optimizer.zero_grad()
             discr_optim.zero_grad()
             
@@ -278,24 +292,24 @@ def train_da(args, model, optimizer, source_dataloader_train, target_dataloader_
             loss_discr_record.append(d_loss.item())
         tq.close()
 
-        # ... Save the average loss for the epoch
+        # 4.6. Save the average loss for the epoch
         loss_train_mean = np.mean(loss_record)
         writer.add_scalar('epoch/loss_epoch_train', float(loss_train_mean), epoch)
         print('loss for train : %f' % (loss_train_mean))
 
-        # ... Save other parameters on tensorboard
+        # 4.7. Save other parameters on tensorboard
         writer.add_scalar('epoch/loss_epoch_discr', float(np.mean(loss_discr_record)), epoch)
         writer.add_scalar('train/lambda', float(lam), epoch)
         writer.add_scalar('train/discr_lr', float(discr_lr), epoch)
         writer.add_scalar('train/g_lr', float(lr), epoch)
 
-        # ... Save a checkpoint of the model every {args.checkpoint_step} epochs
+        # 4.8. Save a checkpoint of the model every {args.checkpoint_step} epochs
         if epoch % args.checkpoint_step == 0 and epoch != 0:
             if not os.path.isdir(args.save_model_path):
                 os.mkdir(args.save_model_path)
             torch.save(model.module.state_dict(), os.path.join(args.save_model_path, 'latest.pth'))
 
-        # ... Evaluate the model on the validation set every {args.validation_step} epochs
+        # 4.9. Evaluate the model on the validation set every {args.validation_step} epochs
         if epoch % args.validation_step == 0 and epoch != 0:
             max_miou = evaluate_and_save_model(args, model, target_dataloader_val, writer, epoch, step, max_miou)
     
@@ -337,19 +351,23 @@ def train(args, model, optimizer, dataloader_train, dataloader_val, comment=''):
 
         # 2.4. Training Loop for each batch
         for i, (data, label) in enumerate(dataloader_train):
+
+            # 2.4.1. Load data and label to GPU
             data = data.cuda()
             label = label.long().cuda()
+
+            # 2.4.2. Zero the gradients
             optimizer.zero_grad()
 
             with amp.autocast():
-                # 2.4.1. Forward pass -> multi-scale outputs
+                # 2.4.2.1. Forward pass -> multi-scale outputs
                 output, out16, out32 = model(data)
                 loss1 = loss_func(output, label.squeeze(1))
                 loss2 = loss_func(out16, label.squeeze(1))
                 loss3 = loss_func(out32, label.squeeze(1))
                 loss = loss1 + loss2 + loss3
 
-                # 2.4.2. Save the randomly selected image in the batch to tensorboard
+                # 2.4.2.2. Save the randomly selected image in the batch to tensorboard
                 if i == image_number and epoch % 2 == 0: #saves the first image in the batch to tensorboard
                     print('epoch {}, iter {}, loss1: {}, loss2: {}, loss3: {}'.format(epoch, i, loss1, loss2, loss3))
                     colorized_predictions , colorized_labels = CityScapes.visualize_prediction(output, label)
