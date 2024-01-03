@@ -143,7 +143,7 @@ def train_da(args, model, optimizer, source_dataloader_train, target_dataloader_
     
     Args:
     - ...
-    - layer: Indicates which layer's output to use for domain adaptation.
+    - layer: Indicates which layer's output to use for domain adaptation in the discriminator.
     """
 
     # 1. Initialization
@@ -184,7 +184,7 @@ def train_da(args, model, optimizer, source_dataloader_train, target_dataloader_
         loss_discr_record = []
         # Utility functions
         softmax_func = torch.nn.functional.softmax
-        dsource_labels , dtarget_labels = torch.ones , torch.zeros
+        dsource_labels, dtarget_labels = torch.zeros, torch.ones
 
         # 4.4. Select a random image to save to tensorboard
         image_number = random.randint(0, min(len(source_dataloader_train),len(target_dataloader_train)) - 1)
@@ -203,26 +203,37 @@ def train_da(args, model, optimizer, source_dataloader_train, target_dataloader_
             optimizer.zero_grad()
             discr_optim.zero_grad()
             
-            ##############################################
-            # Train Generator
-            ##############################################            
+            ###################
+            # Train Generator #
+            ###################
+
+            # TG.1. Set up the discriminator to eval mode
             discr.module.train_params(False)
 
+            # TG.2. Train to minimize the segmentation loss on the source data
             with amp.autocast():
-                #train source data
+                
+                # TG.2.1. Forward pass -> multi-scale outputs
                 s_output, s_out16, s_out32 = model(source_data)
                 
-                ### Train Generator with source data
+                # TG.2.2. Compute the segmentation loss
                 loss1 = loss_func(s_output, source_label.squeeze(1))
                 loss2 = loss_func(s_out16, source_label.squeeze(1))
                 loss3 = loss_func(s_out32, source_label.squeeze(1))
-                
                 loss = loss1 + loss2 + loss3
+            
+            # TG.3. Backward pass of the segmentation loss
             scaler.scale(loss).backward()
             
+            # TG.4. Train to fool the discriminator using the target training data
             with amp.autocast():
-                ### Fool the discriminator by using source labels on target data
+                
+                # TG.4.1. Forward pass -> multi-scale outputs
                 t_output, t_out16, t_out32 = model(target_data)
+
+                # TG.4.2. Select the right output for the discriminator
+                # (depending on the layer selected for domain adaptation)
+                # and get the discriminator's prediction
                 if layer == 0:
                     dom = discr(softmax_func(t_output, dim=1))
                 elif layer == 1:
@@ -232,16 +243,29 @@ def train_da(args, model, optimizer, source_dataloader_train, target_dataloader_
                 else:
                     raise ValueError('layer should be 0, 1 or 2')
                 
+                # TG.4.3. Compute the discriminator loss for the selected layer:
+                # a perfect discriminator would predict all 1s for images' outputs coming from the target domain;
+                # however, we're training G to fool D into believing that they're actually coming from the source domain
+                # (i.e. we would like D to predict all 0s)
                 td_loss_fooled = discr_loss_func(dom, dsource_labels(dom.shape,dtype=torch.float).cuda())
-                
+
+                # TG.4.4. Scale the discriminator loss by lambda:
+                # to limit the impact of the discriminator on the generator
+                # whose primary goal is still to minimize the segmentation loss
                 d_loss = td_loss_fooled * lam
+
+            # TG.5. Backward pass of the discriminator loss
             scaler.scale(d_loss).backward()
 
-            ##############################################
-            # Train Discriminator
-            ##############################################
+            #######################
+            # Train Discriminator #
+            #######################
+
+            # TD.1. Set up the discriminator to train mode
             discr.module.train_params(True)
 
+            # TD.2. Select the right output for the discriminator
+            # (based on the layer selected for domain adaptation)
             if layer == 0:
                 s_output = s_output.detach()
                 t_output = t_output.detach()
@@ -253,43 +277,54 @@ def train_da(args, model, optimizer, source_dataloader_train, target_dataloader_
                 t_output = t_out32.detach()
             else:
                 raise ValueError('layer should be 0, 1 or 2')
+            
+            # TD.3. Train to distinguish between the source and target domains:
+            # A perfect discriminator would predict all 0s for images' outputs coming from the source domain
+            # and all 1s for images' outputs coming from the target domain.
+            # (Losses are divided by 2 to avoid the discriminator overpowering the generator)
+            
             with amp.autocast():
+                # TD.3.1. Train on the source domain
                 dom = discr(softmax_func(s_output, dim=1))
                 sd_loss = discr_loss_func(dom, dsource_labels(dom.shape,dtype=torch.float).cuda()) / 2
-                
-            scaler.scale(sd_loss).backward()    
-
+            scaler.scale(sd_loss).backward()  # Backward pass of the source domain loss
+            
             with amp.autocast():
+                # TD.3.2. Train on the target domain
                 dom = discr(softmax_func(t_output , dim=1))
                 td_loss = discr_loss_func(dom, dtarget_labels(dom.shape,dtype=torch.float).cuda()) / 2
-                
-            scaler.scale(td_loss).backward()
+            scaler.scale(td_loss).backward() # Backward pass of the target domain loss
 
+            # 4.5.3. Save the randomly selected image in the batch to tensorboard
             if i == image_number and epoch % 2 == 0: #saves the first image in the batch to tensorboard
-                    print('epoch {}, iter {}, loss1: {}, loss2: {}, loss3: {}, d_loss_fool: {}, d_loss: {}'.format(epoch, i, loss1, loss2, loss3, d_loss, sd_loss+td_loss))
-                    colorized_predictions , colorized_labels = CityScapes.visualize_prediction(s_output, source_label)
-                    colorized_predictions_16 , _ = CityScapes.visualize_prediction(s_out16, source_label)
-                    colorized_predictions_32 , _ = CityScapes.visualize_prediction(s_out32, source_label)
+                print('epoch {}, iter {}, loss1: {}, loss2: {}, loss3: {}, d_loss_fool: {}, d_loss: {}'.format(epoch, i, loss1, loss2, loss3, d_loss, sd_loss+td_loss))
+                colorized_predictions , colorized_labels = CityScapes.visualize_prediction(s_output, source_label)
+                colorized_predictions_16 , _ = CityScapes.visualize_prediction(s_out16, source_label)
+                colorized_predictions_32 , _ = CityScapes.visualize_prediction(s_out32, source_label)
 
-                    writer.add_image('epoch%d/iter%d/predicted_labels' % (epoch, i), np.array(colorized_predictions), step, dataformats='HWC')
-                    writer.add_image('epoch%d/iter%d/correct_labels' % (epoch, i), np.array(colorized_labels), step, dataformats='HWC')
-                    writer.add_image('epoch%d/iter%d/original_data' % (epoch, i), np.array(source_data[0].cpu(),dtype='uint8'), step, dataformats='CHW')
-                    writer.add_image('epoch%d/iter%d/predicted_labels_16' % (epoch, i), np.array(colorized_predictions_16), step, dataformats='HWC')
-                    writer.add_image('epoch%d/iter%d/predicted_labels_32' % (epoch, i), np.array(colorized_predictions_32), step, dataformats='HWC')
+                writer.add_image('epoch%d/iter%d/predicted_labels' % (epoch, i), np.array(colorized_predictions), step, dataformats='HWC')
+                writer.add_image('epoch%d/iter%d/correct_labels' % (epoch, i), np.array(colorized_labels), step, dataformats='HWC')
+                writer.add_image('epoch%d/iter%d/original_data' % (epoch, i), np.array(source_data[0].cpu(),dtype='uint8'), step, dataformats='CHW')
+                writer.add_image('epoch%d/iter%d/predicted_labels_16' % (epoch, i), np.array(colorized_predictions_16), step, dataformats='HWC')
+                writer.add_image('epoch%d/iter%d/predicted_labels_32' % (epoch, i), np.array(colorized_predictions_32), step, dataformats='HWC')
 
+            # 4.5.4. Update the generator and the discriminator
             scaler.step(optimizer)
             scaler.step(discr_optim)
             scaler.update()
 
+            # 4.5.5. Compute the total loss for the batch
+            tot_g_loss = loss + d_loss # Generator's total loss
+            tot_d_loss = sd_loss + td_loss # Discriminator's total loss
 
-            loss = loss + d_loss
-            d_loss = sd_loss + td_loss
+            # 4.5.6. Update the progress bar
             tq.update(args.batch_size)
-            tq.set_postfix(loss='%.6f' % loss)
+            tq.set_postfix(loss='%.6f' % tot_g_loss)
             step += 1
-            #writer.add_scalar('loss_step', loss, step)
-            loss_record.append(loss.item())
-            loss_discr_record.append(d_loss.item())
+            
+            # 4.5.7. Save the loss for the batch
+            loss_record.append(tot_g_loss.item())
+            loss_discr_record.append(tot_d_loss.item())
         tq.close()
 
         # 4.6. Save the average loss for the epoch
