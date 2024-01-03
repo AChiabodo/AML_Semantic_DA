@@ -32,6 +32,7 @@ from PIL import Image
 import numpy as np
 import random
 import numbers
+from typing import Optional, List
 
 
 ##############
@@ -150,16 +151,18 @@ class ExtGaussianBlur(ExtTransforms):
 
     Args:
     - p: probability of the image being blurred.
-    - radius: radius of the Gaussian blur kernel.
+    - radius: radius of the Gaussian blur kernel (must be odd and positive)
+    - sigma: Optional standard deviation of the Gaussian blur kernel
     """
 
-    def __init__(self, p=0.5, radius=2):
+    def __init__( self, p=0.5, radius:List[int]=1, sigma:Optional[List[float]]=None ):
         self.p = p
         self.radius = radius
+        self.sigma = sigma
 
     def __call__(self, img : Image, lbl : Image) -> (Image, Image):
         if random.random() < self.p:
-            return F.gaussian_blur(img, self.radius), lbl
+            return F.gaussian_blur(img, self.radius, self.sigma), lbl
         return img, lbl  
 
 # COLOR ADJUSTMENTS
@@ -169,7 +172,7 @@ class ExtColorJitter(ExtTransforms):
     Randomly change the brightness, contrast and saturation of an image.
 
     Args:
-    - p: probability of the image being color jittered
+    - p: probability of the image being color jittered.
     - brightness (float or tuple of float (min, max)): How much to jitter brightness.
             brightness_factor is chosen uniformly from [max(0, 1 - brightness), 1 + brightness]
             or the given [min, max]. Should be non negative numbers.
