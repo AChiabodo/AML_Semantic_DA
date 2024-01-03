@@ -21,6 +21,9 @@ from PIL import Image
 
 logger = logging.getLogger()
 
+##############
+# EVALUATION #
+##############
 
 def val(args, model, dataloader, writer = None , epoch = None, step = None):
     """
@@ -113,20 +116,52 @@ def evaluate_and_save_model(args, model, dataloader_val, writer, epoch, step, ma
 
     return max_miou
 
+############
+# TRAINING #
+############
 
 def train_da(args, model, optimizer, source_dataloader_train, target_dataloader_train, target_dataloader_val, comment='', layer=0):
-    #writer = SummaryWriter(comment=''.format(args.optimizer))
+    """
+    Train the model using `Domain Adaptation (DA)` for semantic segmentation tasks. 
+    
+    The function adapts a segmentation model from a source domain (with labeled data)
+    to a target domain (with unlabeled data), aiming to improve performance on the last. 
+    This is achieved through `adversarial training` involving:
+    1. The `generator` (the segmentation model): trained to perform well on the source domain 
+       while also trying to fool the discriminator into believing that its predictions on the 
+       target domain are from the source domain.
+    2. The `discriminator` (a binary classifier): trained to distinguish between the 
+       generator's predictions on the source and target domains.
+
+    The function iteratively updates both the generator and the discriminator.
+    Each epoch involves:
+    1. Generator Training:
+        - Update the generator to minimize the segmentation loss on the source data.
+        - Update the generator to fool the discriminator into believing that its predictions on the target data are from the source domain.
+    2. Discriminator Training:
+        - Update the discriminator to distinguish between the generator's predictions on the source and target domains.
+    
+    Args:
+    - ...
+    - layer: Indicates which layer's output to use for domain adaptation.
+    """
+
+    # 1. Initialization
     writer = SummaryWriter(comment=comment)
-    scaler = amp.GradScaler()
-    d_lr = 1e-4
-    max_lam = 0.0025
-    discr = torch.nn.DataParallel(BiSeNetDiscriminator(num_classes=args.num_classes)).cuda()
+    scaler = amp.GradScaler() # Automatic Mixed Precision
+    d_lr = 1e-4 # Discriminator learning rate
+    max_lam = 0.0025 # Maximum value for the lambda parameter (used to balance the two losses)
+
+    # 2. Discriminator Setup
+    discr = torch.nn.DataParallel(BiSeNetDiscriminator(num_classes=args.num_classes)).cuda() 
     discr_optim = torch.optim.Adam(discr.parameters(), lr=d_lr, betas=(0.9, 0.99))
 
+    # 3. Loss Functions
     loss_func = torch.nn.CrossEntropyLoss(ignore_index=255)
     discr_loss_func = torch.nn.MSELoss()
     #discr_loss_func = torch.nn.BCEWithLogitsLoss()
     
+    # 4. Training Loop for each epoch
     max_miou = 0
     step = 0
     for epoch in range(args.num_epochs):
@@ -242,34 +277,31 @@ def train_da(args, model, optimizer, source_dataloader_train, target_dataloader_
             loss_record.append(loss.item())
             loss_discr_record.append(d_loss.item())
         tq.close()
+
+        # ... Save the average loss for the epoch
         loss_train_mean = np.mean(loss_record)
         writer.add_scalar('epoch/loss_epoch_train', float(loss_train_mean), epoch)
+        print('loss for train : %f' % (loss_train_mean))
+
+        # ... Save other parameters on tensorboard
         writer.add_scalar('epoch/loss_epoch_discr', float(np.mean(loss_discr_record)), epoch)
         writer.add_scalar('train/lambda', float(lam), epoch)
         writer.add_scalar('train/discr_lr', float(discr_lr), epoch)
         writer.add_scalar('train/g_lr', float(lr), epoch)
-        print('loss for train : %f' % (loss_train_mean))
+
+        # ... Save a checkpoint of the model every {args.checkpoint_step} epochs
         if epoch % args.checkpoint_step == 0 and epoch != 0:
             if not os.path.isdir(args.save_model_path):
                 os.mkdir(args.save_model_path)
             torch.save(model.module.state_dict(), os.path.join(args.save_model_path, 'latest.pth'))
 
+        # ... Evaluate the model on the validation set every {args.validation_step} epochs
         if epoch % args.validation_step == 0 and epoch != 0:
-            precision, miou = val(args, model, target_dataloader_val, writer, epoch, step)
-            if miou > max_miou:
-                max_miou = miou
-                os.makedirs(args.save_model_path, exist_ok=True)
-                torch.save(model.module.state_dict(), os.path.join(args.save_model_path, 'best.pth'))
-            writer.add_scalar('epoch/precision_val', precision, epoch)
-            writer.add_scalar('epoch/miou val', miou, epoch)
-    #final evaluation
-    precision, miou = val(args, model, target_dataloader_val, writer, epoch, step)
-    if miou > max_miou:
-        max_miou = miou
-        os.makedirs(args.save_model_path, exist_ok=True)
-        torch.save(model.module.state_dict(), os.path.join(args.save_model_path, 'best.pth'))
-    writer.add_scalar('epoch/precision_val', precision, epoch)
-    writer.add_scalar('epoch/miou val', miou, epoch)
+            max_miou = evaluate_and_save_model(args, model, target_dataloader_val, writer, epoch, step, max_miou)
+    
+    # 5. Final Evaluation
+    max_miou = evaluate_and_save_model(args, model, target_dataloader_val, writer, epoch, step, max_miou)
+
 
 def train(args, model, optimizer, dataloader_train, dataloader_val, comment=''):
     """
