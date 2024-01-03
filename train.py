@@ -1,25 +1,29 @@
 #!/usr/bin/python
 # -*- encoding: utf-8 -*-
-from model.model_stages import BiSeNet, BiSeNetDiscriminator
-from cityscapes import CityScapes
-from GTA5 import GTA5
-from data_augmentation import ExtCompose, ExtToTensor, ExtRandomHorizontalFlip , ExtScale , ExtRandomCrop, ExtGaussianBlur, ExtColorJitter
+
+# LIBRARIES
 import torch
 from torch.utils.data import DataLoader
-import logging
-import argparse
-import numpy as np
-from tensorboardX import SummaryWriter
 import torch.cuda.amp as amp
-from utils import poly_lr_scheduler
-from utils import reverse_one_hot, compute_global_accuracy, fast_hist, per_class_iu
-from utils import str2bool
+from PIL import Image
+import numpy as np
+import argparse
 from tqdm import tqdm
 import random
 import os
-from PIL import Image
+from tensorboardX import SummaryWriter
 
-logger = logging.getLogger()
+# PERSONAL
+# Models
+from model.model_stages import BiSeNet, BiSeNetDiscriminator
+# Datasets
+from cityscapes import CityScapes
+from GTA5 import GTA5
+# Utils
+from utils import poly_lr_scheduler
+from utils import reverse_one_hot, compute_global_accuracy, fast_hist, per_class_iu
+from utils import str2bool
+from data_augmentation import ExtCompose, ExtToTensor, ExtRandomHorizontalFlip , ExtScale , ExtRandomCrop, ExtGaussianBlur, ExtColorJitter
 
 ##############
 # EVALUATION #
@@ -350,7 +354,6 @@ def train_da(args, model, optimizer, source_dataloader_train, target_dataloader_
     
     # 5. Final Evaluation
     max_miou = evaluate_and_save_model(args, model, target_dataloader_val, writer, epoch, step, max_miou)
-
 
 def train(args, model, optimizer, dataloader_train, dataloader_val, comment=''):
     """
