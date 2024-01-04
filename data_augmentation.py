@@ -1,28 +1,28 @@
 """
-data_augmentation.py
+    # data_augmentation.py #
 
-This module provides a set of data augmentation transformations specifically 
-designed for image segmentation tasks. The aim of data augmentation is to 
-increase the amount of training data using reasonable transformations for our
-specific case, i.e. street view images.
+    This module provides a set of data augmentation transformations specifically 
+    designed for image segmentation tasks. The aim of data augmentation is to 
+    increase the amount of training data using reasonable transformations for our
+    specific case, i.e. street view images.
 
-- ExtTransforms is a base callabale class that defines the interface for
-  all the transformations.
+    - ExtTransforms is a base callabale class that defines the interface for
+    all the transformations.
 
-These transformations can be combined to create a robust data augmentation 
-pipeline, enhancing the generalization of semantic segmentation models 
-trained on one dataset (like GTA5) and tested on another (like Cityscapes).
+    These transformations can be combined to create a robust data augmentation 
+    pipeline, enhancing the generalization of semantic segmentation models 
+    trained on one dataset (like GTA5) and tested on another (like Cityscapes).
 
-- ExtCompose: Composes several transforms together.
+    - ExtCompose: Composes several transforms together.
 
-Usage:
-  >>> from data_augmentation import ExtCompose, ExtResize, ExtToTensor
-  >>> transform = ExtCompose([
-  >>>     ExtScale(scale=0.5),
-  >>>     ExtRandomHorizontalFlip(),
-  >>>     ExtToTensor(),
-  >>> ])
-  >>> augmented_image, augmented_label = transform(image, label)
+    Usage:
+    >>> from data_augmentation import ExtCompose, ExtResize, ExtToTensor
+    >>> transform = ExtCompose([
+    >>>     ExtScale(scale=0.5),
+    >>>     ExtRandomHorizontalFlip(),
+    >>>     ExtToTensor(),
+    >>> ])
+    >>> augmented_image, augmented_label = transform(image, label)
 """
 
 
