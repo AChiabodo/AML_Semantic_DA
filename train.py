@@ -594,11 +594,9 @@ def main():
 
     # 1. Initialization
     args = parse_args()
-
-    # 
     n_classes = args.num_classes
     args.dataset = args.dataset.upper()
-    # to be changed
+    #TODO: to be changed
     if args.dataset == 'GTA5':
         args.crop_height, args.crop_width = 526 , 957
     
