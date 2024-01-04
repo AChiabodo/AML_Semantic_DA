@@ -11,7 +11,7 @@ from tensorboardX import SummaryWriter
 # Models
 from model.model_stages import BiSeNetDiscriminator
 # Datasets
-from cityscapes import CityScapes
+from datasets.cityscapes import CityScapes
 # Utils
 from utils import poly_lr_scheduler
 from eval import evaluate_and_save_model

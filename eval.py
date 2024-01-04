@@ -6,7 +6,7 @@ import os
 
 # PERSONAL
 # Datasets
-from cityscapes import CityScapes
+from datasets.cityscapes import CityScapes
 # Utils
 from utils import reverse_one_hot, compute_global_accuracy, fast_hist, per_class_iu
 

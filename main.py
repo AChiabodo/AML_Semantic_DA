@@ -14,13 +14,13 @@ from tensorboardX import SummaryWriter
 # Models
 from model.model_stages import BiSeNet
 # Datasets
-from cityscapes import CityScapes
-from GTA5 import GTA5
+from datasets.cityscapes import CityScapes
+from datasets.GTA5 import GTA5
 # Utils
 from utils import str2bool
-from data_augmentation import ExtCompose, ExtToTensor, ExtRandomHorizontalFlip , ExtScale , ExtRandomCrop, ExtGaussianBlur, ExtColorJitter
-from simple_train import train
-from single_layer_da_train import train_da
+from training.data_augmentation import ExtCompose, ExtToTensor, ExtRandomHorizontalFlip , ExtScale , ExtRandomCrop, ExtGaussianBlur, ExtColorJitter
+from training.simple_train import train
+from training.single_layer_da_train import train_da
 from eval import val
 
 
