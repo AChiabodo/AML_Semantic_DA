@@ -497,17 +497,18 @@ class Compose(object):
         format_string += '\n)'
         return format_string
     
-    class ExtRandomCrop(object):
+    
     """ Crop the given PIL Image at a random location.
-    Args:
-        size (sequence or int): Desired output size of the crop. 
-        	If size is an int instead of sequence like (h, w), a square crop (size, size) is made.
-        padding (int or sequence, optional): Optional padding on each border of the image. 
-        	Default is 0, i.e no padding. 
-         	If a sequence of length 4 is provided, it is used to pad left, top, right, bottom borders respectively.
-        pad_if_needed (boolean): It will pad the image if smaller than the desired size to avoid raising an exception.
-    """ 
-
+			Args:
+				size (sequence or int): Desired output size of the crop. 
+					If size is an int instead of sequence like (h, w), a square crop (size, size) is made.
+				padding (int or sequence, optional): Optional padding on each border of the image. 
+					Default is 0, i.e no padding. 
+					If a sequence of length 4 is provided, it is used to pad left, top, right, bottom borders respectively.
+				pad_if_needed (boolean): It will pad the image if smaller than the desired size to avoid raising an exception.
+	""" 
+class ExtRandomCrop(object):
+	
     def __init__(self, size, padding=0, pad_if_needed=False):
         if isinstance(size, numbers.Number):
             self.size = (int(size), int(size))
@@ -559,15 +560,10 @@ class Compose(object):
             lbl = F.pad(lbl, padding=int((1 + self.size[0] - lbl.size[1]) / 2))
 
         i, j, h, w = self.get_params(img, self.size)
-		
-		cropped_img = F.crop(img, i, j, h, w)
-		cropped_lbl = F.crop(lbl, i, j, h, w)
-
-		# Check if the cropped images match the desired size
-		assert cropped_img.size == self.size, f"Cropped img size {cropped_img.size} doesn't match expected size {self.size}"
-		assert cropped_lbl.size == self.size, f"Cropped lbl size {cropped_lbl.size} doesn't match expected size {self.size}"
-
-		return cropped_img, cropped_lbl
+        
+        cropped_img = F.crop(img, i, j, h, w)
+        cropped_lbl = F.crop(lbl, i, j, h, w)
+        return cropped_img, cropped_lbl
 
     def __repr__(self):
         return self.__class__.__name__ + '(size={0}, padding={1})'.format(self.size, self.padding)

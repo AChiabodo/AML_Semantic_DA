@@ -97,7 +97,7 @@ class AttentionRefinementModule(nn.Module):
 
 
 class ContextPath(nn.Module):
-    def __init__(self, backbone='CatNetSmall', pretrain_model='', use_conv_last=False, *args, **kwargs):
+    def __init__(self, backbone='STDCNet813', pretrain_model='', use_conv_last=False, *args, **kwargs):
         super(ContextPath, self).__init__()
 
         self.backbone = STDCNet813(pretrain_model=pretrain_model, use_conv_last=use_conv_last)

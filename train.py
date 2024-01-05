@@ -152,22 +152,26 @@ def parse_args():
                        dest='mode',
                        type=str,
                        default='train',
+                       help='Select between simple training (train), training with Domain Adaptation (train_da) or testing an already trained model (test)'
     )
 
     parse.add_argument('--backbone',
                        dest='backbone',
                        type=str,
-                       default='CatmodelSmall',
+                       default='STDCNet813',
+                       help='Select the backbone to use for the model. Supported backbones: STDCNet813'                       
     )
     parse.add_argument('--pretrain_path',
                       dest='pretrain_path',
                       type=str,
                       default='pretrained_weights\STDCNet813M_73.91.tar',
+                      help='Path to the pretrained weights of the backbone'
     )
     parse.add_argument('--use_conv_last',
                        dest='use_conv_last',
                        type=str2bool,
                        default=False,
+                       help='Whether to use the last convolutional layer of the backbone'
     )
     parse.add_argument('--num_epochs',
                        type=int, default=50,#300
@@ -194,19 +198,19 @@ def parse_args():
                        help='Width of cropped/resized input image to modelwork')
     parse.add_argument('--batch_size',
                        type=int,
-                       default=2,
+                       default=4, #2
                        help='Number of images in each batch')
     parse.add_argument('--learning_rate',
                         type=float,
-                        default=0.01, #0.01
+                        default=0.001, #0.01
                         help='learning rate used for train')
     parse.add_argument('--num_workers',
                        type=int,
-                       default=6, #4
+                       default=4,
                        help='num of workers')
     parse.add_argument('--num_classes',
                        type=int,
-                       default=19,#19
+                       default=19,
                        help='num of object classes (with void)')
     parse.add_argument('--cuda',
                        type=str,
@@ -229,12 +233,12 @@ def parse_args():
                        default='crossentropy',
                        help='loss function')
     parse.add_argument('--resume',
-                       type=str,
-                       default='True',
+                       type=str2bool,
+                       default=False,
                        help='Define if the model should be trained from scratch or from a trained model')
     parse.add_argument('--op_mode',
                           type=str,
-                          default='CityScapes',
+                          default='CROSS_DOMAIN',
                           help='CityScapes, GTA5 or CROSS_DOMAIN. Define on which dataset the model should be trained and evaluated.')
     parse.add_argument('--resume_model_path',
                        type=str,

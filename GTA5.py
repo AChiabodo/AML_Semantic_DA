@@ -119,7 +119,11 @@ class GTA5(torchDataset):
         self.root = os.path.join(root , 'GTA5')
         self.labels_source = labels_source
         self.transforms = transforms
-        self.paths = self.PathPair_ImgAndLabel(root=self.root,split=split,labels_source=labels_source)
+        self.split = split
+
+        # Split data into train, val, test according to 'split' parameter
+        self.paths = self.PathPair_ImgAndLabel(root=self.root, split=split, labels_source=labels_source)
+        
         
 
     def __len__(self):
@@ -140,8 +144,10 @@ class GTA5(torchDataset):
         if self.transforms is not None:
             img, lbl = self.transforms(img, lbl)
         else:
+            # Apply default transformation if no transforms are provided
             img = ExtToTensor()(img)
             lbl = ExtToTensor()(lbl)
+
         return img, lbl
 
     @staticmethod
