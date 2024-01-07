@@ -307,16 +307,7 @@ class ExtTransforms(object):
 	def __call__(self, img, lbl):
 		pass
 
-class ExtResize(ExtTransforms):
-
-    def __init__(self, size, interpolation=Image.BILINEAR):
-        self.size = size
-        self.interpolation = interpolation
-
-    def __call__(self, img : Image, lbl : Image) -> (Image, Image):
-
-        return F.resize(img, self.size, self.interpolation), F.resize(lbl, self.size, Image.NEAREST)
-    
+ 
 class ExtToTensor(ExtTransforms):
     """Convert a ``PIL Image`` or ``numpy.ndarray`` to tensor.
     Converts a PIL Image or numpy.ndarray (H x W x C) in the range
@@ -330,6 +321,12 @@ class ExtToTensor(ExtTransforms):
 	
 
 class ExtCompose(ExtTransforms):
+    """
+    Composes several transforms together.
+
+    Args:
+    - transforms: list of ``Transform`` objects to compose.
+    """
 
     def __init__(self, transforms):
         self.transforms = transforms
@@ -338,21 +335,43 @@ class ExtCompose(ExtTransforms):
         for t in self.transforms:
             img, lbl = t(img, lbl)
         return img, lbl
+    
+######################
+# TRANSFORMS CLASSES #
+######################
 
-class ExtRandomHorizontalFlip(ExtTransforms):
+# SIZE ADJUSTMENTS
+     
+class ExtResize(ExtTransforms):
+    """
+    Resize the input PIL Image and its label to the given size.
 
-    def __init__(self, p=0.5):
-        self.p = p
+    Args:
+    - size (height, width): Desired output size
+    - interpolation: Desired interpolation for the image
+    
+    For the label, we use nearest neighbor interpolation.
+    """
+
+    def __init__(self, size, interpolation=Image.BILINEAR):
+        self.size = size
+        self.interpolation = interpolation
 
     def __call__(self, img : Image, lbl : Image) -> (Image, Image):
-        if random.random() < self.p:
-            return F.hflip(img), F.hflip(lbl)
-        return img, lbl
-
-
+        return F.resize(img, self.size, self.interpolation), F.resize(lbl, self.size, Image.NEAREST)
+    
 class ExtScale(ExtTransforms):
+    """
+    Rescale the input PIL Image and its label by a factor.
 
-    def __init__(self, scale : float = 0.5, interpolation=InterpolationMode.BICUBIC):
+    Args:
+    - scale: Desired scale factor
+    - interpolation: Desired interpolation for the image
+
+    For the label, we use nearest neighbor interpolation.
+    """
+
+    def __init__(self, scale : float = 0.5, interpolation=Image.BILINEAR):
         self.scale = scale
         self.interpolation = interpolation
 
@@ -361,6 +380,48 @@ class ExtScale(ExtTransforms):
         target_size = ( int(img.size[1]*self.scale), int(img.size[0]*self.scale) ) # (H, W)
         return F.resize(img, target_size, self.interpolation), F.resize(lbl, target_size, Image.NEAREST)
 
+# FLIPS AND ROTATIONS
+
+class ExtRandomHorizontalFlip(ExtTransforms):
+    """
+    Horizontally flip the given PIL Image and its label randomly with a given probability.
+
+    Args:
+    - p: probability of the image being flipped.
+    """
+    
+    def __init__(self, p=0.5):
+        self.p = p
+
+    def __call__(self, img : Image, lbl : Image) -> (Image, Image):
+        if random.random() < self.p:
+            return F.hflip(img), F.hflip(lbl)
+        return img, lbl
+    
+#NOISE AND BLUR
+class ExtGaussianBlur(object):
+		"""Gaussian blur augmentation in SimCLR https://arxiv.org/abs/2002.05709
+		Args:
+				sigma (float): Standard deviation to be passed to `gaussian_blur`.
+		"""
+		def __init__(self, sigma=[.1, 2.]):
+				self.sigma = sigma
+
+		def __call__(self, img : Image, lbl : Image) -> (Image, Image):
+				"""
+				Args:
+						img (PIL Image): Image to be blurred.
+				Returns:
+						PIL Image: Gaussian blurred image.
+				"""
+				sigma = random.uniform(self.sigma[0], self.sigma[1])
+				return F.gaussian_blur(img, sigma), lbl
+
+		def __repr__(self):
+				return self.__class__.__name__ + '(sigma={0})'.format(self.sigma)
+
+
+#COLOR ADJUSTMENTS
 class ExtColorJitter(object):
     """Randomly change the brightness, contrast and saturation of an image.
     Args:
@@ -498,6 +559,8 @@ class Compose(object):
         return format_string
     
     
+#CROPPING
+class ExtRandomCrop(object):
     """ Crop the given PIL Image at a random location.
 			Args:
 				size (sequence or int): Desired output size of the crop. 
@@ -506,8 +569,7 @@ class Compose(object):
 					Default is 0, i.e no padding. 
 					If a sequence of length 4 is provided, it is used to pad left, top, right, bottom borders respectively.
 				pad_if_needed (boolean): It will pad the image if smaller than the desired size to avoid raising an exception.
-	""" 
-class ExtRandomCrop(object):
+	"""
 	
     def __init__(self, size, padding=0, pad_if_needed=False):
         if isinstance(size, numbers.Number):
@@ -568,26 +630,6 @@ class ExtRandomCrop(object):
     def __repr__(self):
         return self.__class__.__name__ + '(size={0}, padding={1})'.format(self.size, self.padding)
 
-class ExtGaussianBlur(object):
-		"""Gaussian blur augmentation in SimCLR https://arxiv.org/abs/2002.05709
-		Args:
-				sigma (float): Standard deviation to be passed to `gaussian_blur`.
-		"""
-		def __init__(self, sigma=[.1, 2.]):
-				self.sigma = sigma
-
-		def __call__(self, img : Image, lbl : Image) -> (Image, Image):
-				"""
-				Args:
-						img (PIL Image): Image to be blurred.
-				Returns:
-						PIL Image: Gaussian blurred image.
-				"""
-				sigma = random.uniform(self.sigma[0], self.sigma[1])
-				return F.gaussian_blur(img, sigma), lbl
-
-		def __repr__(self):
-				return self.__class__.__name__ + '(sigma={0})'.format(self.sigma)
 
 class Args:
     def __init__(self, data_transformations, crop_height, crop_width):

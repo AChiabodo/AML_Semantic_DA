@@ -7,7 +7,10 @@ import torch.nn as nn
 import torch.nn.functional as F
 import torchvision
 
+
 from .stdcnet import STDCNet813
+
+from torch.autograd import Function
 
 
 BatchNorm2d = nn.BatchNorm2d
@@ -38,6 +41,48 @@ class ConvBNReLU(nn.Module):
                 nn.init.kaiming_normal_(ly.weight, a=1)
                 if not ly.bias is None: nn.init.constant_(ly.bias, 0)
 
+
+class BiSeNetDiscriminator(nn.Module):
+    class DiscriminatorConv(nn.Module):
+        def __init__(self, *args, **kwargs) -> None:
+            super().__init__()
+            self.conv = nn.Sequential(
+                nn.Conv2d(*args, **kwargs),
+                nn.LeakyReLU(0.2, inplace=True)
+            )
+        def forward(self, x):
+            return self.conv(x)
+        
+
+    def __init__(self, num_classes, alpha = 0.1, *args, **kwargs):
+        super(BiSeNetDiscriminator, self).__init__()
+        self.alpha = alpha
+        self.discriminator = nn.Sequential(
+            nn.Conv2d(num_classes, 64, kernel_size=4, stride=2, padding=1),
+            nn.LeakyReLU(0.2, inplace=True),
+            
+            nn.Conv2d(64, 128, kernel_size=4, stride=2, padding=1),
+            nn.LeakyReLU(0.2, inplace=True),
+            
+            nn.Conv2d(128, 256, kernel_size=4, stride=2, padding=1),
+            nn.LeakyReLU(0.2, inplace=True),
+            
+            nn.Conv2d(256, 512, kernel_size=4, stride=2, padding=1),
+            nn.LeakyReLU(0.2, inplace=True),
+
+            nn.Conv2d(512, 1, kernel_size=4, stride=2, padding=1),
+            nn.Upsample(scale_factor=32, mode='bilinear')
+            )
+        
+    def forward(self, x):
+        #x = ReverseLayer.apply(x, self.alpha)
+        x = self.discriminator(x)
+        return x
+    
+    def train_params(self, requires_grad=True):
+        for param in self.parameters():
+            param.requires_grad = requires_grad
+            
 
 class BiSeNetOutput(nn.Module):
     def __init__(self, in_chan, mid_chan, n_classes, *args, **kwargs):
@@ -264,5 +309,18 @@ class BiSeNet(nn.Module):
                 nowd_params += child_nowd_params
         return wd_params, nowd_params, lr_mul_wd_params, lr_mul_nowd_params
 
+class ReverseLayer(Function):
+
+    @staticmethod
+    def forward(ctx, x, alpha):
+        ctx.alpha = alpha
+
+        return x.view_as(x)
+
+    @staticmethod
+    def backward(ctx, grad_output):
+        output = grad_output.neg() * ctx.alpha
+
+        return output, None
 
 

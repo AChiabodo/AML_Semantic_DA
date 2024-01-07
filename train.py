@@ -502,7 +502,7 @@ def parse_args():
                        help='Define if the model should be trained from scratch or from a trained model')
     parse.add_argument('--dataset',
                           type=str,
-                          default='GTA5',
+                          default='CROSS_DOMAIN',
                           help='CityScapes, GTA5 or CROSS_DOMAIN. Define on which dataset the model should be trained and evaluated.')
     parse.add_argument('--resume_model_path',
                        type=str,
