@@ -588,3 +588,9 @@ class ExtGaussianBlur(object):
 
 		def __repr__(self):
 				return self.__class__.__name__ + '(sigma={0})'.format(self.sigma)
+
+class Args:
+    def __init__(self, data_transformations, crop_height, crop_width):
+        self.data_transformations = data_transformations
+        self.crop_height = crop_height
+        self.crop_width = crop_width
