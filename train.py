@@ -462,11 +462,11 @@ def parse_args():
                        help='Width of cropped/resized input image to modelwork')
     parse.add_argument('--batch_size',
                        type=int,
-                       default=2,
+                       default=4, #2
                        help='Number of images in each batch')
     parse.add_argument('--learning_rate',
                         type=float,
-                        default=0.001, #0.01
+                        default=0.01, #0.01
                         help='learning rate used for train')
     parse.add_argument('--num_workers',
                        type=int,
@@ -502,7 +502,7 @@ def parse_args():
                        help='Define if the model should be trained from scratch or from a trained model')
     parse.add_argument('--dataset',
                           type=str,
-                          default='CROSS_DOMAIN',
+                          default='GTA5',
                           help='CityScapes, GTA5 or CROSS_DOMAIN. Define on which dataset the model should be trained and evaluated.')
     parse.add_argument('--resume_model_path',
                        type=str,
@@ -573,14 +573,15 @@ def main():
     
     dataloader_train = DataLoader(train_dataset,
                     batch_size=args.batch_size,
-                    shuffle=False,
+                    shuffle=True,
                     num_workers=args.num_workers,
-                    pin_memory=False,
+                    pin_memory=True,
                     drop_last=True)
     dataloader_val = DataLoader(val_dataset,
                        batch_size=1,
                        shuffle=False,
                        num_workers=args.num_workers,
+                       pin_memory=True,
                        drop_last=False)
     model = BiSeNet(backbone=args.backbone, n_classes=n_classes, pretrain_model=args.pretrain_path, use_conv_last=args.use_conv_last)
     

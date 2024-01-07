@@ -126,35 +126,22 @@ class GTA5(torchDataset):
 
     def __getitem__(self, idx, isPath=False):
         img_path, lbl_path = self.paths[idx]
-        try:
-            img_path, lbl_path = self.paths[idx]
-            #lbl_path = self.lbl_paths[idx]
-            # Add debug prints
-            print(f"Index: {idx}, Length of paths: {len(self.paths)}, Length of lbl_paths: {len(self.lbl_paths)}")
-            # ... rest of your code ...
-            
-            if isPath:
-                return img_path, lbl_path
-            img = self.read_img(img_path)
-            lbl = self.read_img(lbl_path)
-            
-            if self.labels_source == "GTA5":
-                lbl = Image.fromarray(np.array(self.map_to_cityscapes(lbl),dtype='uint8')) 
-                if not os.path.exists(lbl_path.split('.png')[0] + "_labelTrainIds.png"):
-                    lbl.convert('L').save(lbl_path.split('.png')[0] + "_labelTrainIds.png")
-            
-            if self.transforms is not None:
-                img, lbl = self.transforms(img, lbl)
-            else:
-                img = ExtToTensor()(img)
-                lbl = ExtToTensor()(lbl)
-            return img, lbl
-    
-        except IndexError:
-            print("IndexError: list index out of range")
-            # Handle the exception accordingly or add more specific debugging info
-            raise  # Raising the exception to trace the issue more explicitly
+        if isPath:
+            return img_path, lbl_path
+        img = self.read_img(img_path)
+        lbl = self.read_img(lbl_path)
         
+        if self.labels_source == "GTA5":
+            lbl = Image.fromarray(np.array(self.map_to_cityscapes(lbl),dtype='uint8')) 
+            #if not os.path.exists(lbl_path.split('.png')[0] + "_labelTrainIds.png"):
+            #    lbl.convert('L').save(lbl_path.split('.png')[0] + "_labelTrainIds.png")
+        
+        if self.transforms is not None:
+            img, lbl = self.transforms(img, lbl)
+        else:
+            img = ExtToTensor()(img)
+            lbl = ExtToTensor()(lbl)
+        return img, lbl
         
 
     @staticmethod
