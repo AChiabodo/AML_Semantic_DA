@@ -47,7 +47,7 @@ def train_da(args, model, optimizer, source_dataloader_train, target_dataloader_
     writer = SummaryWriter(comment=comment)
     scaler = amp.GradScaler() # Automatic Mixed Precision
     d_lr = 1e-4 # Discriminator learning rate
-    max_lam = 0.0025 # Maximum value for the lambda parameter (used to balance the two losses)
+    max_lam = 0.001 # Maximum value for the lambda parameter (used to balance the two losses)
 
     # 2. Discriminator Setup
     discr = torch.nn.DataParallel(BiSeNetDiscriminator(num_classes=args.num_classes)).cuda() 
@@ -115,9 +115,9 @@ def train_da(args, model, optimizer, source_dataloader_train, target_dataloader_
                 
                 # TG.2.2. Compute the segmentation loss
                 loss1 = loss_func(s_output, source_label.squeeze(1))
-                loss2 = loss_func(s_out16, source_label.squeeze(1))
-                loss3 = loss_func(s_out32, source_label.squeeze(1))
-                loss = loss1 + loss2 + loss3
+                #loss2 = loss_func(s_out16, source_label.squeeze(1))
+                #loss3 = loss_func(s_out32, source_label.squeeze(1))
+                loss = loss1 #+ loss2 + loss3
             
             # TG.3. Backward pass of the segmentation loss
             scaler.scale(loss).backward()
@@ -194,16 +194,16 @@ def train_da(args, model, optimizer, source_dataloader_train, target_dataloader_
 
             # 4.5.3. Save the randomly selected image in the batch to tensorboard
             if i == image_number and epoch % 2 == 0: #saves the first image in the batch to tensorboard
-                print('epoch {}, iter {}, loss1: {}, loss2: {}, loss3: {}, d_loss_fool: {}, d_loss: {}'.format(epoch, i, loss1, loss2, loss3, d_loss, sd_loss+td_loss))
+                print('epoch {}, iter {}, loss1: {}, d_loss_fool: {}, d_loss: {}'.format(epoch, i, loss1, d_loss, sd_loss+td_loss))
                 colorized_predictions , colorized_labels = CityScapes.visualize_prediction(s_output, source_label)
-                colorized_predictions_16 , _ = CityScapes.visualize_prediction(s_out16, source_label)
-                colorized_predictions_32 , _ = CityScapes.visualize_prediction(s_out32, source_label)
+                #colorized_predictions_16 , _ = CityScapes.visualize_prediction(s_out16, source_label)
+                #colorized_predictions_32 , _ = CityScapes.visualize_prediction(s_out32, source_label)
 
                 writer.add_image('epoch%d/iter%d/predicted_labels' % (epoch, i), np.array(colorized_predictions), step, dataformats='HWC')
                 writer.add_image('epoch%d/iter%d/correct_labels' % (epoch, i), np.array(colorized_labels), step, dataformats='HWC')
                 writer.add_image('epoch%d/iter%d/original_data' % (epoch, i), np.array(source_data[0].cpu(),dtype='uint8'), step, dataformats='CHW')
-                writer.add_image('epoch%d/iter%d/predicted_labels_16' % (epoch, i), np.array(colorized_predictions_16), step, dataformats='HWC')
-                writer.add_image('epoch%d/iter%d/predicted_labels_32' % (epoch, i), np.array(colorized_predictions_32), step, dataformats='HWC')
+                #writer.add_image('epoch%d/iter%d/predicted_labels_16' % (epoch, i), np.array(colorized_predictions_16), step, dataformats='HWC')
+                #writer.add_image('epoch%d/iter%d/predicted_labels_32' % (epoch, i), np.array(colorized_predictions_32), step, dataformats='HWC')
 
             # 4.5.4. Update the generator and the discriminator
             scaler.step(optimizer)

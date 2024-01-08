@@ -161,7 +161,7 @@ def parse_args():
     parse.add_argument('--data_transformations',
                        type=int,
                        default=0,
-                       help='Select transformations to be applied on the dataset images (0: no transformations, 1 : data augmentation)'
+                       help='Select transformations to be applied on the dataset images (0: no transformations, 1 : feeble data augmentation, 2: precise data augmentation)'
     )
     return parse.parse_args()
 
