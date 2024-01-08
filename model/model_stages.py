@@ -6,7 +6,7 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 import torchvision
-
+from torch.autograd import Function
 from .stdcnet import STDCNet813
 
 
@@ -38,6 +38,46 @@ class ConvBNReLU(nn.Module):
                 nn.init.kaiming_normal_(ly.weight, a=1)
                 if not ly.bias is None: nn.init.constant_(ly.bias, 0)
 
+class BiSeNetDiscriminator(nn.Module):
+    class DiscriminatorConv(nn.Module):
+        def __init__(self, *args, **kwargs) -> None:
+            super().__init__()
+            self.conv = nn.Sequential(
+                nn.Conv2d(*args, **kwargs),
+                nn.LeakyReLU(0.2, inplace=True)
+            )
+        def forward(self, x):
+            return self.conv(x)
+        
+
+    def __init__(self, num_classes, alpha = 0.1, *args, **kwargs):
+        super(BiSeNetDiscriminator, self).__init__()
+        self.alpha = alpha
+        self.discriminator = nn.Sequential(
+            nn.Conv2d(num_classes, 64, kernel_size=4, stride=2, padding=1),
+            nn.LeakyReLU(0.2, inplace=True),
+            
+            nn.Conv2d(64, 128, kernel_size=4, stride=2, padding=1),
+            nn.LeakyReLU(0.2, inplace=True),
+            
+            nn.Conv2d(128, 256, kernel_size=4, stride=2, padding=1),
+            nn.LeakyReLU(0.2, inplace=True),
+            
+            nn.Conv2d(256, 512, kernel_size=4, stride=2, padding=1),
+            nn.LeakyReLU(0.2, inplace=True),
+
+            nn.Conv2d(512, 1, kernel_size=4, stride=2, padding=1),
+            nn.Upsample(scale_factor=32, mode='bilinear')
+            )
+        
+    def forward(self, x):
+        #x = ReverseLayer.apply(x, self.alpha)
+        x = self.discriminator(x)
+        return x
+    
+    def train_params(self, requires_grad=True):
+        for param in self.parameters():
+            param.requires_grad = requires_grad
 
 class BiSeNetOutput(nn.Module):
     def __init__(self, in_chan, mid_chan, n_classes, *args, **kwargs):
@@ -97,7 +137,7 @@ class AttentionRefinementModule(nn.Module):
 
 
 class ContextPath(nn.Module):
-    def __init__(self, backbone='CatNetSmall', pretrain_model='', use_conv_last=False, *args, **kwargs):
+    def __init__(self, backbone='STDCNet813', pretrain_model='', use_conv_last=False, *args, **kwargs):
         super(ContextPath, self).__init__()
 
         self.backbone = STDCNet813(pretrain_model=pretrain_model, use_conv_last=use_conv_last)
@@ -226,6 +266,9 @@ class BiSeNet(nn.Module):
         self.conv_out = BiSeNetOutput(256, 256, n_classes)
         self.conv_out16 = BiSeNetOutput(conv_out_inplanes, 64, n_classes)
         self.conv_out32 = BiSeNetOutput(conv_out_inplanes, 64, n_classes)
+        #self.discr_out = BiSeNetDiscriminator(n_classes, 256, 2)
+        #self.discr_out16 = BiSeNetDiscriminator(n_classes, 64, 2)
+        #self.discr_out32 = BiSeNetDiscriminator(n_classes, 64, 2)
 
         self.init_weight()
 
@@ -239,9 +282,12 @@ class BiSeNet(nn.Module):
         feat_out = self.conv_out(feat_fuse)
         feat_out16 = self.conv_out16(feat_cp8)
         feat_out32 = self.conv_out32(feat_cp16)
-
+        # if self.training:
+        #     domain_out = self.discr_out(feat_out)
+        #     domain_out16 = self.discr_out16(feat_out16)
+        #     domain_out32 = self.discr_out32(feat_out32)
         feat_out = F.interpolate(feat_out, (H, W), mode='bilinear', align_corners=True)
-        feat_out16 = F.interpolate(feat_out16, (H, W), mode='bilinear', align_corners=True)
+        feat_out16 = F.interpolate(feat_out16, (H, W), mode='bilinear', align_corners=True) 
         feat_out32 = F.interpolate(feat_out32, (H, W), mode='bilinear', align_corners=True)
 
         return feat_out, feat_out16, feat_out32
@@ -266,3 +312,16 @@ class BiSeNet(nn.Module):
 
 
 
+class ReverseLayer(Function):
+
+    @staticmethod
+    def forward(ctx, x, alpha):
+        ctx.alpha = alpha
+
+        return x.view_as(x)
+
+    @staticmethod
+    def backward(ctx, grad_output):
+        output = grad_output.neg() * ctx.alpha
+
+        return output, None

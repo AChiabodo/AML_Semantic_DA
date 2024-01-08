@@ -127,6 +127,7 @@ venv/
 ENV/
 env.bak/
 venv.bak/
+myenv/
 
 # Spyder project settings
 .spyderproject
@@ -162,3 +163,4 @@ dataset/
 runs/
 trained_models/
 pretrained_weights/
+temp.ipynb

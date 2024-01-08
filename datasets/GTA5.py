@@ -7,8 +7,8 @@ import os
 from abc import ABCMeta
 from dataclasses import dataclass
 from typing import Tuple, Optional
-from utils import ExtResize, ExtToTensor, ExtTransforms , ExtCompose
-from cityscapes import CityScapes
+from training.data_augmentation import ExtResize, ExtToTensor, ExtTransforms , ExtCompose
+from datasets.cityscapes import CityScapes
 class BaseGTALabels(metaclass=ABCMeta):
     pass
 
@@ -164,7 +164,3 @@ class GTA5(torchDataset):
     
     def map_to_cityscapes(self, lbl):
         return self.id_to_train_id[np.array(lbl)]
-
-
-
-

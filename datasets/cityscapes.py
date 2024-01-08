@@ -4,7 +4,7 @@ from collections import namedtuple
 from typing import Any, Callable, Dict, List, Optional, Tuple, Union
 
 from PIL import Image
-from utils import ExtResize, ExtToTensor, ExtTransforms , ExtCompose
+from training.data_augmentation import ExtResize, ExtToTensor, ExtTransforms , ExtCompose
 from torchvision.datasets.utils import iterable_to_str, verify_str_arg
 from torchvision.datasets.vision import VisionDataset
 import numpy as np
