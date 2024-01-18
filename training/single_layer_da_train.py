@@ -13,11 +13,11 @@ from model.model_stages import BiSeNetDiscriminator
 # Datasets
 from datasets.cityscapes import CityScapes
 # Utils
-from utils import poly_lr_scheduler
+from utils import poly_lr_scheduler, save_ckpt
 from eval import evaluate_and_save_model
 
 
-def train_da(args, model, optimizer, source_dataloader_train, target_dataloader_train, target_dataloader_val, comment='', layer=0):
+def train_da(args, model, optimizer, source_dataloader_train, target_dataloader_train, target_dataloader_val, comment='', layer=0,starting_epoch=0):
     """
     Train the model using `Domain Adaptation (DA)` for semantic segmentation tasks. 
     
@@ -46,8 +46,8 @@ def train_da(args, model, optimizer, source_dataloader_train, target_dataloader_
     # 1. Initialization
     writer = SummaryWriter(comment=comment)
     scaler = amp.GradScaler() # Automatic Mixed Precision
-    d_lr = 1e-4 # Discriminator learning rate
-    max_lam = 0.0025 # Maximum value for the lambda parameter (used to balance the two losses)
+    d_lr = 2e-4 # Discriminator learning rate
+    max_lam = 0.0015 # Maximum value for the lambda parameter (used to balance the two losses)
 
     # 2. Discriminator Setup
     discr = torch.nn.DataParallel(BiSeNetDiscriminator(num_classes=args.num_classes)).cuda() 
@@ -61,7 +61,7 @@ def train_da(args, model, optimizer, source_dataloader_train, target_dataloader_
     # 4. Training Loop for each epoch
     max_miou = 0
     step = 0
-    for epoch in range(args.num_epochs):
+    for epoch in range(starting_epoch,args.num_epochs):
 
         # 4.1. Adjust Learning Rates
         lr = poly_lr_scheduler(optimizer, args.learning_rate, iter=epoch, max_iter=args.num_epochs)
@@ -239,11 +239,10 @@ def train_da(args, model, optimizer, source_dataloader_train, target_dataloader_
         if epoch % args.checkpoint_step == 0 and epoch != 0:
             if not os.path.isdir(args.save_model_path):
                 os.mkdir(args.save_model_path)
-            torch.save(model.module.state_dict(), os.path.join(args.save_model_path, 'latest.pth'))
-
+            #torch.save(model.module.state_dict(), os.path.join(args.save_model_path, 'latest.pth'))
+            save_ckpt(args=args,model=model, optimizer=optimizer,cur_epoch=epoch,best_score= max_miou)
         # 4.9. Evaluate the model on the validation set every {args.validation_step} epochs
         if epoch % args.validation_step == 0 and epoch != 0:
             max_miou = evaluate_and_save_model(args, model, target_dataloader_val, writer, epoch, step, max_miou)
-    
     # 5. Final Evaluation
     max_miou = evaluate_and_save_model(args, model, target_dataloader_val, writer, epoch, step, max_miou)

@@ -1,15 +1,12 @@
 import torch.nn as nn
-import torch
-import torchvision.transforms.functional as F
-from PIL import Image
 import numpy as np
 import pandas as pd
+import torch
 import random
 import numbers
 import torchvision
 import argparse
-
-from PIL import Image
+import os
 
 def poly_lr_scheduler(optimizer, init_lr, iter, lr_decay_iter=1,
                       max_iter=300, power=0.9):
@@ -304,3 +301,28 @@ def str2bool(v):
 		return False
 	else:
 		raise argparse.ArgumentTypeError('Unsupported value encountered.')
+	
+def save_ckpt(model, optimizer,best_score, cur_epoch,args):
+        """ save current model
+        """
+        torch.save({
+            "cur_epoch": cur_epoch,
+            "model_state": model.module.state_dict(),
+            "optimizer_state": optimizer.state_dict(),
+            "best_score": best_score,
+        }, os.path.join(args.save_model_path, 'latest.pth'))
+        print("Model saved as %s" % os.path.join(args.save_model_path, 'latest.pth'))
+
+def load_ckpt(args, model, optimizer=None):
+		checkpoint = torch.load(args.resume_model_path, map_location=torch.device('cpu'))
+		model.load_state_dict(checkpoint["model_state"])
+		model = nn.DataParallel(model)
+		model.cuda()
+		if args.continue_training:
+			optimizer.load_state_dict(checkpoint["optimizer_state"])
+			cur_itrs = checkpoint["cur_itrs"]
+			best_score = checkpoint['best_score']
+			print("Training state restored from %s" % args.resume_model_path)
+		print("Model restored from %s" % args.resume_model_path)
+		del checkpoint  # free memory
+		return model, optimizer, best_score, cur_itrs
