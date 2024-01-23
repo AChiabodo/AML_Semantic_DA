@@ -302,7 +302,7 @@ def str2bool(v):
 	else:
 		raise argparse.ArgumentTypeError('Unsupported value encountered.')
 	
-def save_ckpt(model, optimizer,best_score, cur_epoch,args):
+def save_ckpt(model, optimizer,best_score, cur_epoch,args, discriminator=None):
         """ save current model
         """
         torch.save({
@@ -310,19 +310,19 @@ def save_ckpt(model, optimizer,best_score, cur_epoch,args):
             "model_state": model.module.state_dict(),
             "optimizer_state": optimizer.state_dict(),
             "best_score": best_score,
+			"discriminator": discriminator.state_dict() if discriminator is not None else None
         }, os.path.join(args.save_model_path, 'latest.pth'))
         print("Model saved as %s" % os.path.join(args.save_model_path, 'latest.pth'))
 
-def load_ckpt(args, model, optimizer=None):
-		checkpoint = torch.load(args.resume_model_path, map_location=torch.device('cpu'))
+def load_ckpt(args, model, optimizer, discriminator=None):
+		checkpoint = torch.load(args.resume_model_path)
 		model.load_state_dict(checkpoint["model_state"])
-		model = nn.DataParallel(model)
-		model.cuda()
 		if args.continue_training:
 			optimizer.load_state_dict(checkpoint["optimizer_state"])
 			cur_itrs = checkpoint["cur_itrs"]
 			best_score = checkpoint['best_score']
+			if discriminator is not None:
+				discriminator.load_state_dict(checkpoint['discriminator'])
 			print("Training state restored from %s" % args.resume_model_path)
 		print("Model restored from %s" % args.resume_model_path)
-		del checkpoint  # free memory
-		return model, optimizer, best_score, cur_itrs
+		return best_score, cur_itrs

@@ -17,7 +17,7 @@ from model.model_stages import BiSeNet
 from datasets.cityscapes import CityScapes
 from datasets.GTA5 import GTA5
 # Utils
-from utils import str2bool
+from utils import str2bool, load_ckpt
 from training.data_augmentation import ExtCompose, ExtToTensor, ExtRandomHorizontalFlip , ExtScale , ExtRandomCrop, ExtGaussianBlur, ExtColorJitter
 from training.simple_train import train
 from training.single_layer_da_train import train_da
@@ -272,7 +272,8 @@ def main():
                 args.resume_model_path = os.path.join(args.save_model_path, 'best.pth')
                 print('No model path specified. Loading the best model trained so far: {}'.format(args.resume_model_path))
             # 6.2. Load the model
-            model.load_state_dict(torch.load(args.resume_model_path))
+            starting_epoch , best_score = load_ckpt(model, args.resume_model_path, )
+            #model.load_state_dict(torch.load(args.resume_model_path))
             print('successfully resume model from %s' % args.resume_model_path)
         except Exception as e:
             print(e)

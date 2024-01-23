@@ -164,3 +164,4 @@ runs/
 trained_models/
 pretrained_weights/
 temp.ipynb
+temp.py
