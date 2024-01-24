@@ -241,6 +241,7 @@ def train_da(args, model, optimizer, source_dataloader_train, target_dataloader_
                 os.mkdir(args.save_model_path)
             #torch.save(model.module.state_dict(), os.path.join(args.save_model_path, 'latest.pth'))
             save_ckpt(args=args,model=model, optimizer=optimizer,cur_epoch=epoch,best_score= max_miou)
+            
         # 4.9. Evaluate the model on the validation set every {args.validation_step} epochs
         if epoch % args.validation_step == 0 and epoch != 0:
             max_miou = evaluate_and_save_model(args, model, target_dataloader_val, writer, epoch, step, max_miou)
