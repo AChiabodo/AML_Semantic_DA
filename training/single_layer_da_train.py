@@ -224,6 +224,14 @@ def train_da(args, model, optimizer, source_dataloader_train, target_dataloader_
             loss_discr_record.append(tot_d_loss.item())
         tq.close()
 
+        # 4.8. Save a checkpoint of the model every {args.checkpoint_step} epochs
+        if epoch % args.checkpoint_step == 0 and epoch != 0:
+            if not os.path.isdir(args.save_model_path):
+                os.mkdir(args.save_model_path)
+            #torch.save(model.module.state_dict(), os.path.join(args.save_model_path, 'latest.pth'))
+            save_ckpt(args=args,model=model, optimizer=optimizer,cur_epoch=epoch,best_score= max_miou)
+        
+        
         # 4.6. Save the average loss for the epoch
         loss_train_mean = np.mean(loss_record)
         writer.add_scalar('epoch/loss_epoch_train', float(loss_train_mean), epoch)
@@ -235,13 +243,7 @@ def train_da(args, model, optimizer, source_dataloader_train, target_dataloader_
         writer.add_scalar('train/discr_lr', float(discr_lr), epoch)
         writer.add_scalar('train/g_lr', float(lr), epoch)
 
-        # 4.8. Save a checkpoint of the model every {args.checkpoint_step} epochs
-        if epoch % args.checkpoint_step == 0 and epoch != 0:
-            if not os.path.isdir(args.save_model_path):
-                os.mkdir(args.save_model_path)
-            #torch.save(model.module.state_dict(), os.path.join(args.save_model_path, 'latest.pth'))
-            save_ckpt(args=args,model=model, optimizer=optimizer,cur_epoch=epoch,best_score= max_miou)
-            
+    
         # 4.9. Evaluate the model on the validation set every {args.validation_step} epochs
         if epoch % args.validation_step == 0 and epoch != 0:
             max_miou = evaluate_and_save_model(args, model, target_dataloader_val, writer, epoch, step, max_miou)
