@@ -259,32 +259,15 @@ def main():
                        shuffle=False,
                        num_workers=args.num_workers,
                        drop_last=False)
-    
+        
     # 5. Model Setup
     model = BiSeNet(backbone=args.backbone, n_classes=n_classes, pretrain_model=args.pretrain_path, use_conv_last=args.use_conv_last)
-    
-    # 6. Resume Model from Checkpoint
-    if args.resume or args.mode == 'test':
-        try:
-            # 6.1. If no model path is specified
-            if args.resume_model_path == '':
-                # Load the best model trained so far
-                args.resume_model_path = os.path.join(args.save_model_path, 'best.pth')
-                print('No model path specified. Loading the best model trained so far: {}'.format(args.resume_model_path))
-            # 6.2. Load the model
-            starting_epoch , best_score = load_ckpt(model, optimizer, args.resume_model_path, )
-            #model.load_state_dict(torch.load(args.resume_model_path))
-            print('successfully resume model from %s' % args.resume_model_path)
-        except Exception as e:
-            print(e)
-            print('resume failed, try again')
-            return None
 
-    # 7. GPU Parallelization
+    # 6. GPU Parallelization
     if torch.cuda.is_available() and args.use_gpu:
         model = torch.nn.DataParallel(model).cuda()
 
-    # 8. Optimizer Selection
+    # 7. Optimizer Selection
     if args.optimizer == 'rmsprop':
         """
         Root Mean Square Propagation
@@ -311,7 +294,20 @@ def main():
     else:
         print('not supported optimizer \n')
         return None
-    
+
+    # 8. Resume Model from Checkpoint
+    if args.resume or args.mode == 'test':
+        try:
+            if args.resume_model_path == '':
+                args.resume_model_path = os.path.join(args.save_model_path, 'best.pth')
+                print('No model path specified. Loading the best model trained so far: {}'.format(args.resume_model_path))
+            starting_epoch , best_score = load_ckpt(model, optimizer, args.resume_model_path, )
+            print('successfully resume model from %s' % args.resume_model_path)
+        except Exception as e:
+            print(e)
+            print('resume failed, try again')
+            return None
+   
     # 9. Comment for Tensorboard
     if args.comment == '':
         args.comment = "_{}_{}_{}_{}".format(args.mode,args.dataset,args.batch_size,args.learning_rate)
