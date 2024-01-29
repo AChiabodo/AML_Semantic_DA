@@ -301,7 +301,7 @@ def main():
             if args.resume_model_path == '':
                 args.resume_model_path = os.path.join(args.save_model_path, 'best.pth')
                 print('No model path specified. Loading the best model trained so far: {}'.format(args.resume_model_path))
-            starting_epoch , best_score = load_ckpt(model, optimizer, args.resume_model_path, )
+            starting_epoch , best_score = load_ckpt(args, optimizer, args.resume_model_path, )
             print('successfully resume model from %s' % args.resume_model_path)
         except Exception as e:
             print(e)
