@@ -303,37 +303,47 @@ def str2bool(v):
 		raise argparse.ArgumentTypeError('Unsupported value encountered.')
 	
  
-def save_ckpt(model, optimizer, best_score, cur_epoch, args, discriminator=None, cur_itrs=None):
-    checkpoint_filename = 'epoch_{}_{}.pth'.format(cur_epoch, args.comment)
-    checkpoint_path = os.path.join(args.save_model_path, checkpoint_filename)
+def save_ckpt(args,model, optimizer, best_score, cur_epoch, discriminator=None, cur_itrs=None, discriminator_optimizer=None, name=None):
+	if name is not None:
+		checkpoint_filename = 'epoch_{}_{}.pth'.format(cur_epoch, args.comment)
+	else:
+		checkpoint_filename = name
+	checkpoint_path = os.path.join(args.save_model_path, checkpoint_filename)
 
-    torch.save({
+	torch.save({
         "cur_epoch": cur_epoch,
-        "model_state_dict": model.module.state_dict(),
-        "optimizer_state_dict": optimizer.state_dict(),
+        "model_state_dict": model.module.state_dict() if hasattr(model, "module") else model.state_dict(),
+        "optimizer_state_dict": optimizer.state_dict() if optimizer is not None else None,
         "best_score": best_score,
-        "discriminator": discriminator.state_dict() if discriminator is not None else None,
-        "cur_itrs": cur_itrs  # aggiungi questa linea se cur_itrs è importante
+        "discriminator": discriminator.module.state_dict() if discriminator is not None else None,
+        "cur_itrs": cur_itrs,  # aggiungi questa linea se cur_itrs è importante
+		"discriminator_optimizer": discriminator_optimizer.state_dict() if discriminator_optimizer is not None else None
     }, checkpoint_path)
 
-    print("Model saved as %s" % checkpoint_path)
+	print("Model saved as %s" % checkpoint_path)
 
 
 
-def load_ckpt(args, model, optimizer, discriminator=None):
-    checkpoint = torch.load(args.resume_model_path)
-    model.load_state_dict(checkpoint["model_state_dict"])
-    if args.continue_training:
-        optimizer.load_state_dict(checkpoint["optimizer_state_dict"])
-        cur_epoch = checkpoint["cur_epoch"]  # carica l'epoca corrente
-        best_score = checkpoint['best_score']
-        if discriminator is not None:
-            discriminator.load_state_dict(checkpoint['discriminator'])
-        cur_itrs = checkpoint.get("cur_itrs", None)  # carica cur_itrs se esiste
-        print("Training state restored from %s" % args.resume_model_path)
-    else:
-        cur_epoch = 0
-        cur_itrs = None
-    print("Model restored from %s" % args.resume_model_path)
-    return best_score, cur_epoch, cur_itrs  # restituisci anche cur_epoch e cur_itrs
+def load_ckpt(args, model, optimizer, discriminator=None, discriminator_optimizer=None, verbose=False):
+	checkpoint = torch.load(args.resume_model_path)
+	model.module.load_state_dict(checkpoint["model_state_dict"])
+	if verbose : 
+		print("Model restored from %s" % args.resume_model_path)
+	if args.resume:
+		optimizer.load_state_dict(checkpoint["optimizer_state_dict"])
+		if verbose :
+			print("Optimizer restored from %s" % args.resume_model_path)
+		cur_epoch = checkpoint["cur_epoch"]  # carica l'epoca corrente
+		best_score = checkpoint['best_score']
+		if discriminator is not None and discriminator_optimizer is not None and 'discriminator' in checkpoint and 'discriminator_optimizer' in checkpoint:
+			discriminator.module.load_state_dict(checkpoint['discriminator'])
+			discriminator_optimizer.load_state_dict(checkpoint['discriminator_optimizer'])
+			if verbose :
+				print("Discriminator restored from %s" % args.resume_model_path)
+		cur_itrs = checkpoint.get("cur_itrs", None)  # carica cur_itrs se esiste
+		print("Training state correctly restored from %s" % args.resume_model_path)
+	else:
+		cur_epoch = 0
+		cur_itrs = None
+	return best_score, cur_epoch  # restituisci anche cur_epoch e cur_itrs
 
