@@ -11,7 +11,7 @@ from tensorboardX import SummaryWriter
 # Datasets
 from datasets.cityscapes import CityScapes
 # Utils
-from utils import poly_lr_scheduler
+from utils import poly_lr_scheduler, load_ckpt
 from eval import evaluate_and_save_model
 
 
@@ -32,8 +32,22 @@ def train(args, model, optimizer, dataloader_train, dataloader_val, comment=''):
     max_miou = 0 # Best mIoU on the validation set
     step = 0 # Number of iterations
 
+    # 1.2 Resume Model from Checkpoint
+    if args.resume:
+        try:
+            if args.resume_model_path == '':
+                args.resume_model_path = os.path.join(args.save_model_path, 'best.pth')
+                print('No model path specified. Loading the best model trained so far: {}'.format(args.resume_model_path))
+            max_miou, starting_epoch = load_ckpt(args, optimizer=optimizer, model=model)
+            print('successfully resume model from %s' % args.resume_model_path)
+        except Exception as e:
+            print(e)
+            print('resume failed, try again')
+            return None
+
+
     # 2. Training Loop 
-    for epoch in range(args.num_epochs):
+    for epoch in range(starting_epoch,args.num_epochs):
 
         # 2.1. Adjust Learning Rate
         lr = poly_lr_scheduler(optimizer, args.learning_rate, iter=epoch, max_iter=args.num_epochs)

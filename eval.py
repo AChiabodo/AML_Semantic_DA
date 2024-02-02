@@ -96,7 +96,7 @@ def evaluate_and_save_model(args, model, dataloader_val, writer, epoch, step, ma
         max_miou = miou
         os.makedirs(args.save_model_path, exist_ok=True)
         #torch.save(model.module.state_dict(), os.path.join(args.save_model_path, 'best.pth'))
-        save_ckpt(args=args,model=model, optimizer=None,cur_epoch=epoch,best_score= max_miou,name='best.pth',discriminator_optimizer=None,discriminator=None)
+        save_ckpt(args=args,model=model,cur_epoch=epoch,best_score= max_miou,name='best.pth')
 
     writer.add_scalar('epoch/precision_val', precision, epoch)
     writer.add_scalar('epoch/miou_val', miou, epoch)

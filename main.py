@@ -295,37 +295,32 @@ def main():
         print('not supported optimizer \n')
         return None
 
-    # 8. Resume Model from Checkpoint
-    if args.mode == 'test':
-        try:
-            if args.resume_model_path == '':
-                args.resume_model_path = os.path.join(args.save_model_path, 'best.pth')
-                print('No model path specified. Loading the best model trained so far: {}'.format(args.resume_model_path))
-            load_ckpt(args, model=model, optimizer=optimizer, model_path=args.resume_model_path)
-            print('successfully resume model from %s' % args.resume_model_path)
-        except Exception as e:
-            print(e)
-            print('resume failed, try again')
-            return None
-   
-    # 9. Comment for Tensorboard
+    # 8. Comment for Tensorboard
     if args.comment == '':
         args.comment = "_{}_{}_{}_{}".format(args.mode,args.dataset,args.batch_size,args.learning_rate)
 
-    # 10. Path to Pretrained Weights
+    # 9. Path to Pretrained Weights
     if os.name == 'nt':
         args.pretrain_path = args.pretrain_path.replace('\\','/')
 
-    # 11. Start Training or Evaluation
+    # 10. Start Training or Evaluation
     match args.mode:
         case 'train':
-            # 11.1. Simple Training on Source Dataset
+            # 10.1. Simple Training on Source Dataset
             train(args, model, optimizer, source_dataloader_train, dataloader_val, comment="_{}_{}_{}_{}".format(args.mode,args.dataset,args.batch_size,args.learning_rate))
         case 'train_da':
-            # 11.2. Training with Domain Adaptation
+            # 10.2. Training with Domain Adaptation
             train_da(args, model, optimizer, source_dataloader_train, target_dataloader_train, dataloader_val, comment=args.comment)
         case 'test':
-            # 11.3. Evaluation of an already trained model on the Validation Set
+            # 10.3. Load the trained model and evaluate it on the Validation Set
+            try:
+                load_ckpt(args, model=model)
+                print('successfully resume model from %s' % args.resume_model_path)
+            except Exception as e:
+                print(e)
+                print('resume failed, try again')
+                return None
+            
             writer = SummaryWriter(comment=args.comment)
             val(args, model, dataloader_val,writer=writer,epoch=0,step=0)
         case _:

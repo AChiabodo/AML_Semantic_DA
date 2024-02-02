@@ -43,24 +43,23 @@ def train_da(args, model, optimizer, source_dataloader_train, target_dataloader_
     - layer: Indicates which layer's output to use for domain adaptation in the discriminator.
     """
 
-    # 1. Initialization
+    # 1.1 Parameters Initialization
     writer = SummaryWriter(comment=comment)
+
     scaler = amp.GradScaler() # Automatic Mixed Precision
     d_lr = 2e-4 # Discriminator learning rate
     max_lam = 0.0015 # Maximum value for the lambda parameter (used to balance the two losses)
-
-    # 2. Discriminator Setup
-    discr = torch.nn.DataParallel(BiSeNetLightDiscriminator(num_classes=args.num_classes)).cuda() 
-    discr_optim = torch.optim.Adam(discr.parameters(), lr=d_lr, betas=(0.9, 0.99))
     max_miou = 0
     step = 0
-    # 8. Resume Model from Checkpoint
-    if args.resume or args.mode == 'test':
+
+    # 1.2 Discriminator Initialization
+    discr = torch.nn.DataParallel(BiSeNetLightDiscriminator(num_classes=args.num_classes)).cuda() 
+    discr_optim = torch.optim.Adam(discr.parameters(), lr=d_lr, betas=(0.9, 0.99))
+
+    # 2. Resume Model from Checkpoint
+    if args.resume:
         try:
-            if args.resume_model_path == '':
-                args.resume_model_path = os.path.join(args.save_model_path, 'best.pth')
-                print('No model path specified. Loading the best model trained so far: {}'.format(args.resume_model_path))
-            max_miou, starting_epoch = load_ckpt(args, optimizer=optimizer, model=model, discriminator=discr, discriminator_optimizer=discr_optim,verbose=True)
+            max_miou, starting_epoch = load_ckpt(args, optimizer=optimizer, model=model, discriminator=discr, discriminator_optimizer=discr_optim)
             print('successfully resume model from %s' % args.resume_model_path)
         except Exception as e:
             print(e)
@@ -238,8 +237,6 @@ def train_da(args, model, optimizer, source_dataloader_train, target_dataloader_
 
         # 4.8. Save a checkpoint of the model every {args.checkpoint_step} epochs
         if epoch % args.checkpoint_step == 0 and epoch != 0:
-            if not os.path.isdir(args.save_model_path):
-                os.mkdir(args.save_model_path)
             #torch.save(model.module.state_dict(), os.path.join(args.save_model_path, 'latest.pth'))
             save_ckpt(args=args,model=model, optimizer=optimizer,cur_epoch=epoch,best_score= max_miou,name='latest.pth',discriminator_optimizer=discr_optim,discriminator=discr)
         
