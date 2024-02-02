@@ -304,12 +304,21 @@ def str2bool(v):
 	
  
 def save_ckpt(args,model, optimizer, best_score, cur_epoch, discriminator=None, cur_itrs=None, discriminator_optimizer=None, name=None):
-	if name is not None:
+	
+	# 1. Create the directory if it doesn't exist
+	if not os.path.exists(args.save_model_path):
+		os.makedirs(args.save_model_path)
+	
+	# 2. Define the checkpoint filename
+	if name is None:
 		checkpoint_filename = 'epoch_{}_{}.pth'.format(cur_epoch, args.comment)
 	else:
 		checkpoint_filename = name
+
+	# 2.1 Define the checkpoint path
 	checkpoint_path = os.path.join(args.save_model_path, checkpoint_filename)
 
+	# 3. Save the checkpoint
 	torch.save({
         "cur_epoch": cur_epoch,
         "model_state_dict": model.module.state_dict() if hasattr(model, "module") else model.state_dict(),
@@ -320,30 +329,43 @@ def save_ckpt(args,model, optimizer, best_score, cur_epoch, discriminator=None, 
 		"discriminator_optimizer": discriminator_optimizer.state_dict() if discriminator_optimizer is not None else None
     }, checkpoint_path)
 
+	# 4. Print the checkpoint path
 	print("Model saved as %s" % checkpoint_path)
 
 
 
-def load_ckpt(args, model, optimizer, discriminator=None, discriminator_optimizer=None, verbose=False):
+def load_ckpt(args, model, optimizer = None, discriminator=None, discriminator_optimizer=None, verbose=False) -> (float, int):
+	
+	# 1. Check if the model path is specified, otherwise load the best model trained so far
+	if args.resume_model_path == '':
+		args.resume_model_path = os.path.join(args.save_model_path, 'best.pth')
+		print('No model path specified. Loading the best model trained so far: {}'.format(args.resume_model_path))
+
+	# 2. Load the checkpoint
 	checkpoint = torch.load(args.resume_model_path)
+
+	# 3. Load the model state dict
 	model.module.load_state_dict(checkpoint["model_state_dict"])
 	if verbose : 
 		print("Model restored from %s" % args.resume_model_path)
+	
+	# 4. If we're resuming training, also load the optimizer state dict, the current epoch and the best score so far
 	if args.resume:
 		optimizer.load_state_dict(checkpoint["optimizer_state_dict"])
 		if verbose :
 			print("Optimizer restored from %s" % args.resume_model_path)
 		cur_epoch = checkpoint["cur_epoch"]  # carica l'epoca corrente
 		best_score = checkpoint['best_score']
+		
+		# 4.1. Load the discriminator and its optimizer if it was a domain adaptation task
 		if discriminator is not None and discriminator_optimizer is not None and 'discriminator' in checkpoint and 'discriminator_optimizer' in checkpoint:
 			discriminator.module.load_state_dict(checkpoint['discriminator'])
 			discriminator_optimizer.load_state_dict(checkpoint['discriminator_optimizer'])
 			if verbose :
 				print("Discriminator restored from %s" % args.resume_model_path)
-		cur_itrs = checkpoint.get("cur_itrs", None)  # carica cur_itrs se esiste
 		print("Training state correctly restored from %s" % args.resume_model_path)
 	else:
 		cur_epoch = 0
-		cur_itrs = None
-	return best_score, cur_epoch  # restituisci anche cur_epoch e cur_itrs
+	# 5. Return the best score and the current epoch
+	return best_score, cur_epoch
 
