@@ -8,7 +8,7 @@ import os
 # Datasets
 from datasets.cityscapes import CityScapes
 # Utils
-from utils import reverse_one_hot, compute_global_accuracy, fast_hist, per_class_iu
+from utils import reverse_one_hot, compute_global_accuracy, fast_hist, per_class_iu, save_ckpt
 
 
 def val(args, model, dataloader, writer = None , epoch = None, step = None):
@@ -95,7 +95,8 @@ def evaluate_and_save_model(args, model, dataloader_val, writer, epoch, step, ma
     if miou > max_miou:
         max_miou = miou
         os.makedirs(args.save_model_path, exist_ok=True)
-        torch.save(model.module.state_dict(), os.path.join(args.save_model_path, 'best.pth'))
+        #torch.save(model.module.state_dict(), os.path.join(args.save_model_path, 'best.pth'))
+        save_ckpt(args=args,model=model, optimizer=None,cur_epoch=epoch,best_score= max_miou,name='best.pth',discriminator_optimizer=None,discriminator=None)
 
     writer.add_scalar('epoch/precision_val', precision, epoch)
     writer.add_scalar('epoch/miou_val', miou, epoch)

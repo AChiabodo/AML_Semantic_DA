@@ -9,11 +9,11 @@ from tensorboardX import SummaryWriter
 
 # PERSONAL
 # Models
-from model.model_stages import BiSeNetDiscriminator
+from model.model_stages import BiSeNetDiscriminator, BiSeNetLightDiscriminator
 # Datasets
 from datasets.cityscapes import CityScapes
 # Utils
-from utils import poly_lr_scheduler, save_ckpt
+from utils import poly_lr_scheduler, save_ckpt, load_ckpt
 from eval import evaluate_and_save_model
 
 
@@ -50,17 +50,29 @@ def train_da(args, model, optimizer, source_dataloader_train, target_dataloader_
     max_lam = 0.0015 # Maximum value for the lambda parameter (used to balance the two losses)
 
     # 2. Discriminator Setup
-    discr = torch.nn.DataParallel(BiSeNetDiscriminator(num_classes=args.num_classes)).cuda() 
+    discr = torch.nn.DataParallel(BiSeNetLightDiscriminator(num_classes=args.num_classes)).cuda() 
     discr_optim = torch.optim.Adam(discr.parameters(), lr=d_lr, betas=(0.9, 0.99))
+    max_miou = 0
+    step = 0
+    # 8. Resume Model from Checkpoint
+    if args.resume or args.mode == 'test':
+        try:
+            if args.resume_model_path == '':
+                args.resume_model_path = os.path.join(args.save_model_path, 'best.pth')
+                print('No model path specified. Loading the best model trained so far: {}'.format(args.resume_model_path))
+            max_miou, starting_epoch = load_ckpt(args, optimizer=optimizer, model=model, discriminator=discr, discriminator_optimizer=discr_optim,verbose=True)
+            print('successfully resume model from %s' % args.resume_model_path)
+        except Exception as e:
+            print(e)
+            print('resume failed, try again')
+            return None
 
     # 3. Loss Functions
     loss_func = torch.nn.CrossEntropyLoss(ignore_index=255)
-    discr_loss_func = torch.nn.MSELoss()
-    #discr_loss_func = torch.nn.BCEWithLogitsLoss()
+    #discr_loss_func = torch.nn.MSELoss()
+    discr_loss_func = torch.nn.BCEWithLogitsLoss()
     
     # 4. Training Loop for each epoch
-    max_miou = 0
-    step = 0
     for epoch in range(starting_epoch,args.num_epochs):
 
         # 4.1. Adjust Learning Rates
@@ -68,9 +80,7 @@ def train_da(args, model, optimizer, source_dataloader_train, target_dataloader_
         discr_lr = poly_lr_scheduler(discr_optim, d_lr, iter=epoch, max_iter=args.num_epochs)
 
         # 4.2. Adjust Lambda
-        #lam = max_lam * ((epoch) / args.num_epochs) ** 0.9
-        #lam = max_lam if epoch > 10 else max_lam * ( 1 + ((epoch - 10) / (args.num_epochs)))
-        lam = (max_lam) #* (1 + np.sin(np.pi / 2 * epoch / 50)) / 2
+        lam = (max_lam)
 
         # 4.3. Set up the model to train mode
         model.train()
@@ -140,6 +150,8 @@ def train_da(args, model, optimizer, source_dataloader_train, target_dataloader_
                 else:
                     raise ValueError('layer should be 0, 1 or 2')
                 
+
+
                 # TG.4.3. Compute the discriminator loss for the selected layer:
                 # a perfect discriminator would predict all 1s for images' outputs coming from the target domain;
                 # however, we're training G to fool D into believing that they're actually coming from the source domain
@@ -229,7 +241,7 @@ def train_da(args, model, optimizer, source_dataloader_train, target_dataloader_
             if not os.path.isdir(args.save_model_path):
                 os.mkdir(args.save_model_path)
             #torch.save(model.module.state_dict(), os.path.join(args.save_model_path, 'latest.pth'))
-            save_ckpt(args=args,model=model, optimizer=optimizer,cur_epoch=epoch,best_score= max_miou)
+            save_ckpt(args=args,model=model, optimizer=optimizer,cur_epoch=epoch,best_score= max_miou,name='latest.pth',discriminator_optimizer=discr_optim,discriminator=discr)
         
         
         # 4.6. Save the average loss for the epoch

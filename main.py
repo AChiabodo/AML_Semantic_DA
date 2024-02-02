@@ -155,7 +155,7 @@ def parse_args():
     )
     parse.add_argument('--comment',
                        type=str,
-                       default='test',
+                       default='test_default',
                        help='Comment to add to the log and on tensorboard to identify the model'
     )
     parse.add_argument('--data_transformations',
@@ -296,12 +296,12 @@ def main():
         return None
 
     # 8. Resume Model from Checkpoint
-    if args.resume or args.mode == 'test':
+    if args.mode == 'test':
         try:
             if args.resume_model_path == '':
                 args.resume_model_path = os.path.join(args.save_model_path, 'best.pth')
                 print('No model path specified. Loading the best model trained so far: {}'.format(args.resume_model_path))
-            starting_epoch , best_score = load_ckpt(args, optimizer, args.resume_model_path, )
+            load_ckpt(args, model=model, optimizer=optimizer, model_path=args.resume_model_path)
             print('successfully resume model from %s' % args.resume_model_path)
         except Exception as e:
             print(e)
