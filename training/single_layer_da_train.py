@@ -17,6 +17,7 @@ from utils import poly_lr_scheduler, save_ckpt, load_ckpt
 from eval import evaluate_and_save_model
 
 
+
 def train_da(args, model, optimizer, source_dataloader_train, target_dataloader_train, target_dataloader_val, comment='', layer=0,starting_epoch=0):
     """
     Train the model using `Domain Adaptation (DA)` for semantic segmentation tasks. 
@@ -148,8 +149,6 @@ def train_da(args, model, optimizer, source_dataloader_train, target_dataloader_
                     dom = discr(softmax_func(t_out32, dim=1))
                 else:
                     raise ValueError('layer should be 0, 1 or 2')
-                
-
 
                 # TG.4.3. Compute the discriminator loss for the selected layer:
                 # a perfect discriminator would predict all 1s for images' outputs coming from the target domain;
@@ -235,26 +234,25 @@ def train_da(args, model, optimizer, source_dataloader_train, target_dataloader_
             loss_discr_record.append(tot_d_loss.item())
         tq.close()
 
-        # 4.8. Save a checkpoint of the model every {args.checkpoint_step} epochs
+        # 4.6. Save a checkpoint of the model every {args.checkpoint_step} epochs
         if epoch % args.checkpoint_step == 0 and epoch != 0:
             #torch.save(model.module.state_dict(), os.path.join(args.save_model_path, 'latest.pth'))
             save_ckpt(args=args,model=model, optimizer=optimizer,cur_epoch=epoch,best_score= max_miou,name='latest.pth',discriminator_optimizer=discr_optim,discriminator=discr)
         
-        
-        # 4.6. Save the average loss for the epoch
+        # 4.7. Save the average loss for the epoch
         loss_train_mean = np.mean(loss_record)
         writer.add_scalar('epoch/loss_epoch_train', float(loss_train_mean), epoch)
         print('loss for train : %f' % (loss_train_mean))
 
-        # 4.7. Save other parameters on tensorboard
+        # 4.8. Save other parameters on tensorboard
         writer.add_scalar('epoch/loss_epoch_discr', float(np.mean(loss_discr_record)), epoch)
         writer.add_scalar('train/lambda', float(lam), epoch)
         writer.add_scalar('train/discr_lr', float(discr_lr), epoch)
         writer.add_scalar('train/g_lr', float(lr), epoch)
 
-    
         # 4.9. Evaluate the model on the validation set every {args.validation_step} epochs
         if epoch % args.validation_step == 0 and epoch != 0:
             max_miou = evaluate_and_save_model(args, model, target_dataloader_val, writer, epoch, step, max_miou)
+    
     # 5. Final Evaluation
     max_miou = evaluate_and_save_model(args, model, target_dataloader_val, writer, epoch, step, max_miou)

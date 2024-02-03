@@ -8,6 +8,7 @@ import torchvision
 import argparse
 import os
 
+# Polynomial learning rate scheduler
 def poly_lr_scheduler(optimizer, init_lr, iter, lr_decay_iter=1,
                       max_iter=300, power=0.9):
 	"""Polynomial decay of learning rate
@@ -24,8 +25,8 @@ def poly_lr_scheduler(optimizer, init_lr, iter, lr_decay_iter=1,
 	lr = init_lr*(1 - iter/max_iter)**power
 	optimizer.param_groups[0]['lr'] = lr
 	return lr
-	# return lr
 
+# Get label information from a CSV file
 def get_label_info(csv_path):
 	# return label -> {label_name: [r_value, g_value, b_value, ...}
 	ann = pd.read_csv(csv_path)
@@ -39,6 +40,7 @@ def get_label_info(csv_path):
 		label[label_name] = [int(r), int(g), int(b), class_11]
 	return label
 
+# Convert labeled image to one-hot encoded semantic map
 def one_hot_it(label, label_info):
 	# return semantic_map -> [H, W]
 	semantic_map = np.zeros(label.shape[:-1])
@@ -52,7 +54,7 @@ def one_hot_it(label, label_info):
 	# semantic_map = np.stack(semantic_map, axis=-1)
 	return semantic_map
 
-
+# Convert labeled image to one-hot encoded semantic map with void class
 def one_hot_it_v11(label, label_info):
 	# return semantic_map -> [H, W, class_num]
 	semantic_map = np.zeros(label.shape[:-1])
@@ -74,6 +76,7 @@ def one_hot_it_v11(label, label_info):
 			semantic_map[class_map] = 11
 	return semantic_map
 
+# Convert labeled image to one-hot encoded semantic map with void class (for dice loss)
 def one_hot_it_v11_dice(label, label_info):
 	# return semantic_map -> [H, W, class_num]
 	semantic_map = []
@@ -95,6 +98,7 @@ def one_hot_it_v11_dice(label, label_info):
 	semantic_map = np.stack(semantic_map, axis=-1).astype(np.float)
 	return semantic_map
 
+# Reverse one-hot encoding to get class indices
 def reverse_one_hot(image):
 	"""
 	Transform a 2D array in one-hot format (depth is num_classes),
@@ -121,7 +125,7 @@ def reverse_one_hot(image):
 	x = torch.argmax(image, dim=-1)
 	return x
 
-
+# Color code the segmentation results
 def colour_code_segmentation(image, label_values):
 	"""
     Given a 1-channel array of class keys, colour code the segmentation results.
@@ -145,9 +149,9 @@ def colour_code_segmentation(image, label_values):
 	label_values.append([0, 0, 0])
 	colour_codes = np.array(label_values)
 	x = colour_codes[image.astype(int)]
-
 	return x
 
+# Compute global accuracy
 def compute_global_accuracy(pred, label):
 	pred = pred.flatten()
 	label = label.flatten()
@@ -158,6 +162,7 @@ def compute_global_accuracy(pred, label):
 			count = count + 1.0
 	return float(count) / float(total)
 
+# Fast histogram computation
 def fast_hist(a, b, n):
 	'''
 	a and b are predict and mask respectively
@@ -166,11 +171,13 @@ def fast_hist(a, b, n):
 	k = (a >= 0) & (a < n)
 	return np.bincount(n * a[k].astype(int) + b[k], minlength=n ** 2).reshape(n, n)
 
-
+# Per-class intersection over union
 def per_class_iu(hist):
 	epsilon = 1e-5
 	return (np.diag(hist)) / (hist.sum(1) + hist.sum(0) - np.diag(hist) + epsilon)
 
+
+# Random crop transformation
 class RandomCrop(object):
 	"""Crop the given PIL Image at a random location.
 
@@ -240,6 +247,8 @@ class RandomCrop(object):
 	def __repr__(self):
 		return self.__class__.__name__ + '(size={0}, padding={1})'.format(self.size, self.padding)
 
+
+# Calculate mean intersection over union
 def cal_miou(miou_list, csv_path):
 	# return label -> {label_name: [r_value, g_value, b_value, ...}
 	ann = pd.read_csv(csv_path)
@@ -253,6 +262,7 @@ def cal_miou(miou_list, csv_path):
 			cnt += 1
 	return miou_dict, np.mean(miou_list)
 
+# Online Hard Example Mining CrossEntropy Loss
 class OHEM_CrossEntroy_Loss(nn.Module):
 	def __init__(self, threshold, keep_num):
 		super(OHEM_CrossEntroy_Loss, self).__init__()
@@ -270,6 +280,7 @@ class OHEM_CrossEntroy_Loss(nn.Module):
 			loss = loss[:self.keep_num]
 		return torch.mean(loss)
 
+# Group weights for optimization with weight decay
 def group_weight(weight_group, module, norm_layer, lr):
 	group_decay = []
 	group_no_decay = []
@@ -294,6 +305,7 @@ def group_weight(weight_group, module, norm_layer, lr):
 	weight_group.append(dict(params=group_no_decay, weight_decay=.0, lr=lr))
 	return weight_group
 
+# Convert string to boolean
 def str2bool(v):
 	if v.lower() in ('yes', 'true', 't', 'y', '1'):
 		return True
@@ -302,7 +314,7 @@ def str2bool(v):
 	else:
 		raise argparse.ArgumentTypeError('Unsupported value encountered.')
 	
- 
+# Save model checkpoint
 def save_ckpt(args,model, optimizer, best_score, cur_epoch, discriminator=None, cur_itrs=None, discriminator_optimizer=None, name=None):
 	
 	# 1. Create the directory if it doesn't exist
@@ -332,8 +344,7 @@ def save_ckpt(args,model, optimizer, best_score, cur_epoch, discriminator=None, 
 	# 4. Print the checkpoint path
 	print("Model saved as %s" % checkpoint_path)
 
-
-
+# Load model checkpoint
 def load_ckpt(args, model, optimizer = None, discriminator=None, discriminator_optimizer=None, verbose=False) -> (float, int):
 	
 	# 1. Check if the model path is specified, otherwise load the best model trained so far

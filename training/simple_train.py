@@ -25,14 +25,14 @@ def train(args, model, optimizer, dataloader_train, dataloader_val, comment=''):
     - Option 2: Training with Data Augmentation, to improve the performance of the model
     """
 
-    # 1. Initialization
+    #Initialization
     writer = SummaryWriter(comment=comment) # Tensorboard writer
     scaler = amp.GradScaler() # Automatic Mixed Precision
     loss_func = torch.nn.CrossEntropyLoss(ignore_index=255)
     max_miou = 0 # Best mIoU on the validation set
     step = 0 # Number of iterations
 
-    # 1.2 Resume Model from Checkpoint
+    # 1. Resume Model from Checkpoint
     if args.resume:
         try:
             if args.resume_model_path == '':
@@ -44,7 +44,6 @@ def train(args, model, optimizer, dataloader_train, dataloader_val, comment=''):
             print(e)
             print('resume failed, try again')
             return None
-
 
     # 2. Training Loop 
     for epoch in range(starting_epoch,args.num_epochs):
