@@ -18,7 +18,7 @@ from datasets.cityscapes import CityScapes
 from datasets.GTA5 import GTA5
 # Utils
 from utils import str2bool, load_ckpt
-from training.data_augmentation import ExtCompose, ExtToTensor, ExtRandomHorizontalFlip , ExtScale , ExtRandomCrop, ExtGaussianBlur, ExtColorJitter
+from training.data_augmentation import ExtCompose, ExtToTensor, ExtRandomHorizontalFlip , ExtScale , ExtRandomCrop, ExtGaussianBlur, ExtColorJitter, ExtRandomCompose
 from training.simple_train import train
 from training.single_layer_da_train import train_da
 from eval import val
@@ -193,11 +193,11 @@ def main():
                 2. To reduce computational cost
             - Images are randomly flipped horizontally
             """
-            transformations = ExtCompose([
+            transformations = ExtRandomCompose([
                 ExtScale(random.choice([0.75,1,1.25,1.5,1.75,2]),interpolation=Image.Resampling.BILINEAR),
                 ExtRandomCrop((args.crop_height, args.crop_width)),
                 ExtRandomHorizontalFlip(),
-                ExtToTensor()])
+                ExtToTensor()],[ExtScale(0.5,interpolation=Image.Resampling.BILINEAR), ExtToTensor()])
             target_transformations = ExtCompose([ExtScale(0.5,interpolation=Image.Resampling.BILINEAR), ExtToTensor()])
         case 2:
             """
@@ -209,13 +209,13 @@ def main():
             - Images are randomly blurred
             - Images are randomly color jittered
             """
-            transformations = ExtCompose([
+            transformations = ExtRandomCompose([
                 ExtScale(random.choice([0.75,1,1.25,1.5,1.75,2]),interpolation=Image.Resampling.BILINEAR),
                 ExtRandomCrop((args.crop_height, args.crop_width)),
                 ExtRandomHorizontalFlip(),
                 ExtGaussianBlur(p=0.5, radius=1),
                 ExtColorJitter(p=0.5, brightness=0.2, contrast=0.1, saturation=0.1, hue=0.2),
-                ExtToTensor()])
+                ExtToTensor()],[ExtScale(0.5,interpolation=Image.Resampling.BILINEAR), ExtToTensor()])
             target_transformations = ExtCompose([ExtScale(0.5,interpolation=Image.Resampling.BILINEAR), ExtToTensor()])
     """The Validation Set is also resized to 0.5 of its original size"""
     eval_transformations = ExtCompose([ExtScale(0.5,interpolation=Image.Resampling.BILINEAR), ExtToTensor()])

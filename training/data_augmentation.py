@@ -65,6 +65,27 @@ class ExtCompose(ExtTransforms):
             img, lbl = t(img, lbl)
         return img, lbl
     
+class ExtRandomCompose(ExtTransforms):
+    """
+    Composes several transforms together.
+
+    Args:
+    - transforms: list of ``Transform`` objects to compose.
+    """
+
+    def __init__(self, transforms_1, transforms_2):
+        self.transforms_1 = transforms_1
+        self.transforms_2 = transforms_2
+
+    def __call__(self, img : Image, lbl : Image) -> (Image, Image):
+        if random.uniform(0, 1) > 0.5:
+            for t in self.transforms_2:
+                img, lbl = t(img, lbl)
+        else:
+            for t in self.transforms_1:
+                img, lbl = t(img, lbl)
+        return img, lbl
+
 class ExtToTensor(ExtTransforms):
     """
     Convert a ``PIL Image`` or ``numpy.ndarray`` to tensor.
