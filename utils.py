@@ -315,7 +315,7 @@ def str2bool(v):
 		raise argparse.ArgumentTypeError('Unsupported value encountered.')
 	
 # Save model checkpoint
-def save_ckpt(args,model, optimizer, best_score, cur_epoch, discriminator=None, cur_itrs=None, discriminator_optimizer=None, name=None):
+def save_ckpt(args,model, best_score, cur_epoch, optimizer= None, discriminator=None, cur_itrs=None, discriminator_optimizer=None, name=None):
 	
 	# 1. Create the directory if it doesn't exist
 	if not os.path.exists(args.save_model_path):
