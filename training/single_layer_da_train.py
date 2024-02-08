@@ -9,7 +9,7 @@ from tensorboardX import SummaryWriter
 
 # PERSONAL
 # Models
-from model.model_stages import BiSeNetDiscriminator, BiSeNetLightDiscriminator
+from model.model_stages import BiSeNetDiscriminator
 # Datasets
 from datasets.cityscapes import CityScapes
 # Utils
@@ -54,7 +54,7 @@ def train_da(args, model, optimizer, source_dataloader_train, target_dataloader_
     step = 0
 
     # 1.2 Discriminator Initialization
-    discr = torch.nn.DataParallel(BiSeNetLightDiscriminator(num_classes=args.num_classes)).cuda() 
+    discr = torch.nn.DataParallel(BiSeNetDiscriminator(num_classes=args.num_classes)).cuda() 
     discr_optim = torch.optim.Adam(discr.parameters(), lr=d_lr, betas=(0.9, 0.99))
 
     # 2. Resume Model from Checkpoint
