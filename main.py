@@ -176,6 +176,10 @@ def main():
         args.crop_height, args.crop_width = 526 , 957
     
     # 2. Data Transformations Selection
+        
+    """By default, the images are resized to 0.5 of their original size to reduce computational cost"""
+    standard_transformations = ExtCompose([ExtScale(0.5,interpolation=Image.Resampling.BILINEAR), ExtToTensor()])
+
     match args.data_transformations:
         case 0:
             """
@@ -183,25 +187,26 @@ def main():
             - Images are resized to 0.5 of their original size to reduce computational cost
             - No extra transformations are applied to the dataset
             """
-            transformations = ExtCompose([ExtScale(0.5,interpolation=Image.Resampling.BILINEAR), ExtToTensor()]) #ExtRandomHorizontalFlip(),
-            target_transformations = ExtCompose([ExtScale(0.5,interpolation=Image.Resampling.BILINEAR), ExtToTensor()])
+            transformations = standard_transformations
+            target_transformations = standard_transformations
         case 1:
             """
-            Feeble Data Augmentation
+            Feeble Data Augmentation -> 50% probability to be applied
             - Images from GTA5 are first enlarged and then cropped to the half of their original size
                 1. To pay attention to the details of the images
                 2. To reduce computational cost
             - Images are randomly flipped horizontally
             """
             transformations = ExtRandomCompose([
-                ExtScale(random.choice([0.75,1,1.25,1.5,1.75,2]),interpolation=Image.Resampling.BILINEAR),
+                ExtScale(random.choice([1.25,1.5,1.75,2]),interpolation=Image.Resampling.BILINEAR),
                 ExtRandomCrop((args.crop_height, args.crop_width)),
                 ExtRandomHorizontalFlip(),
-                ExtToTensor()],[ExtScale(0.5,interpolation=Image.Resampling.BILINEAR), ExtToTensor()])
-            target_transformations = ExtCompose([ExtScale(0.5,interpolation=Image.Resampling.BILINEAR), ExtToTensor()])
+                ExtToTensor()],
+                standard_transformations)
+            target_transformations = standard_transformations
         case 2:
             """
-            Precise Data Augmentation
+            Precise Data Augmentation -> 50% probability to be applied
             - Images from GTA5 are first enlarged and then cropped to the half of their original size
                 1. To pay attention to the details of the images
                 2. To reduce computational cost
@@ -210,15 +215,17 @@ def main():
             - Images are randomly color jittered
             """
             transformations = ExtRandomCompose([
-                ExtScale(random.choice([0.75,1,1.25,1.5,1.75,2]),interpolation=Image.Resampling.BILINEAR),
+                ExtScale(random.choice([1.25,1.5,1.75,2]),interpolation=Image.Resampling.BILINEAR),
                 ExtRandomCrop((args.crop_height, args.crop_width)),
                 ExtRandomHorizontalFlip(),
                 ExtGaussianBlur(p=0.5, radius=1),
                 ExtColorJitter(p=0.5, brightness=0.2, contrast=0.1, saturation=0.1, hue=0.2),
-                ExtToTensor()],[ExtScale(0.5,interpolation=Image.Resampling.BILINEAR), ExtToTensor()])
-            target_transformations = ExtCompose([ExtScale(0.5,interpolation=Image.Resampling.BILINEAR), ExtToTensor()])
+                ExtToTensor()],
+                standard_transformations)
+            target_transformations = standard_transformations
+            
     """The Validation Set is also resized to 0.5 of its original size"""
-    eval_transformations = ExtCompose([ExtScale(0.5,interpolation=Image.Resampling.BILINEAR), ExtToTensor()])
+    eval_transformations = standard_transformations
     
     # 3. Datasets Selection
     if args.dataset == 'CITYSCAPES':

@@ -67,10 +67,12 @@ class ExtCompose(ExtTransforms):
     
 class ExtRandomCompose(ExtTransforms):
     """
-    Composes several transforms together.
-
+    Composes two lists of transforms together and randomly selects one to apply
+    with a probability of 0.5.
+    
     Args:
-    - transforms: list of ``Transform`` objects to compose.
+    - transforms_1: list of ``Transform`` objects to compose.
+    - transforms_2: list of ``Transform`` objects to compose.
     """
 
     def __init__(self, transforms_1, transforms_2):
