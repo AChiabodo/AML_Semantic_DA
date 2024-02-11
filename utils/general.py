@@ -314,8 +314,6 @@ def str2bool(v):
 	else:
 		raise argparse.ArgumentTypeError('Unsupported value encountered.')
  
-
- 
 # Save model checkpoint
 def save_ckpt(args,model, best_score, cur_epoch, optimizer= None, discriminator=None, cur_itrs=None, discriminator_optimizer=None, name=None):
 	
@@ -381,54 +379,3 @@ def load_ckpt(args, model, optimizer = None, discriminator=None, discriminator_o
 		cur_epoch = 0
 	# 5. Return the best score and the current epoch
 	return best_score, cur_epoch
-
-# Preprocessing an image
-def preprocess_image(image):
-    """
-    Esegue il preprocessing su un'immagine.
-    """
-    # Sottrai la media
-    mean = np.mean(image)
-    image = image - mean
-
-    # Normalizza l'immagine
-    std = np.std(image)
-    image = image / std
-
-    return image
-
-
-#function for loss entropy fro cityscapes (FDA)
-class EntropyMinimizationLoss(nn.Module):
-    def __init__(self, h):
-        super(EntropyMinimizationLoss, self).__init__()
-        self.h = h
-
-    def forward(self, phi_w, x_t):
-        """
-        Computes entropy minimization loss.
-
-        Args:
-            phi_w (torch.Tensor): Parameter tensor.
-            x_t (torch.Tensor): Target data tensor.
-
-        Returns:
-            torch.Tensor: Entropy minimization loss.
-        """
-        log_phi_w = torch.log(phi_w)
-        term1 = -self.h * phi_w
-        term2 = log_phi_w
-        rho_term = torch.sum(torch.abs(term1 - term2))
-
-        return rho_term
-
-# Example usage:
-h_value = 0.5  # Adjust as needed
-loss_fn = EntropyMinimizationLoss(h_value)
-
-# Assuming phi_w and x_t are your tensors
-phi_w = torch.randn(10, requires_grad=True)
-x_t = torch.randn(10)
-
-entropy_loss = loss_fn(phi_w, x_t)
-#print(f"Entropy Minimization Loss: {entropy_loss.item()}")

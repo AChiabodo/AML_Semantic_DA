@@ -8,7 +8,7 @@ import fda
 
 
 from PIL import Image
-from utils.aug_utils import ExtResize, ExtToTensor, ExtTransforms , ExtCompose
+from utils.aug import ExtResize, ExtToTensor, ExtTransforms , ExtCompose
 from torchvision.datasets.utils import iterable_to_str, verify_str_arg
 from torchvision.datasets.vision import VisionDataset
 import numpy as np

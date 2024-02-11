@@ -13,7 +13,7 @@ from model.model_stages import BiSeNetDiscriminator
 # Datasets
 from datasets.cityscapes import CityScapes
 # Utils
-from utils import poly_lr_scheduler, save_ckpt, load_ckpt
+from utils.general import poly_lr_scheduler, save_ckpt, load_ckpt
 from eval import evaluate_and_save_model
 
 

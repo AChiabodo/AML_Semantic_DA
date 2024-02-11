@@ -17,8 +17,8 @@ from model.model_stages import BiSeNet
 from datasets.cityscapes import CityScapes
 from datasets.GTA5 import GTA5
 # Utils
-from utils import str2bool, load_ckpt
-from utils.aug_utils import ExtCompose, ExtToTensor, ExtRandomHorizontalFlip , ExtScale , ExtRandomCrop, ExtGaussianBlur, ExtColorJitter, ExtRandomCompose
+from utils.general import str2bool, load_ckpt
+from utils.aug import ExtCompose, ExtToTensor, ExtRandomHorizontalFlip , ExtScale , ExtRandomCrop, ExtGaussianBlur, ExtColorJitter, ExtRandomCompose
 from training.simple_train import train
 from training.single_layer_da_train import train_da
 from eval import val

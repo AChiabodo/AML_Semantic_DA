@@ -8,7 +8,7 @@ import os
 # Datasets
 from datasets.cityscapes import CityScapes
 # Utils
-from utils import reverse_one_hot, compute_global_accuracy, fast_hist, per_class_iu, save_ckpt
+from utils.general import reverse_one_hot, compute_global_accuracy, fast_hist, per_class_iu, save_ckpt
 
 
 def val(args, model, dataloader, writer = None , epoch = None, step = None):

@@ -1,7 +1,7 @@
 """
-  # fda_utils.py #
+  # fda.py #
 
-  This file contains the implementation of the Fourier Domain Adaptation (FDA) method,
+  This module provides the implementation of the Fourier Domain Adaptation (FDA) method,
   to adapt the appearance of source images to the target domain.
   
   The key idea of FDA is to swap the low-frequency components of the amplitude spectrum 
@@ -13,6 +13,7 @@ import torch
 from torch import tensor
 from PIL import Image
 import numpy as np
+import torch.nn as nn
 
 def FDA_source_to_target( src_img: tensor, trg_img: tensor, beta=0.1 ):
     """
@@ -78,3 +79,56 @@ def low_freq_mutate( amp_src, amp_trg, beta=0.1 ):
     amp_src[:,:,h-b:h,0:b]   = amp_trg[:,:,h-b:h,0:b]    # bottom left
     amp_src[:,:,h-b:h,w-b:w] = amp_trg[:,:,h-b:h,w-b:w]  # bottom right
     return amp_src
+
+
+#TODO: CHECK THE FOLLOWING FUNCTIONS
+
+# Preprocessing an image
+def preprocess_image(image):
+    """
+    Esegue il preprocessing su un'immagine.
+    """
+    # Sottrai la media
+    mean = np.mean(image)
+    image = image - mean
+
+    # Normalizza l'immagine
+    std = np.std(image)
+    image = image / std
+
+    return image
+
+#function for loss entropy fro cityscapes (FDA)
+class EntropyMinimizationLoss(nn.Module):
+    def __init__(self, h):
+        super(EntropyMinimizationLoss, self).__init__()
+        self.h = h
+
+    def forward(self, phi_w, x_t):
+        """
+        Computes entropy minimization loss.
+
+        Args:
+            phi_w (torch.Tensor): Parameter tensor.
+            x_t (torch.Tensor): Target data tensor.
+
+        Returns:
+            torch.Tensor: Entropy minimization loss.
+        """
+        log_phi_w = torch.log(phi_w)
+        term1 = -self.h * phi_w
+        term2 = log_phi_w
+        rho_term = torch.sum(torch.abs(term1 - term2))
+
+        return rho_term
+
+# Example usage:
+h_value = 0.5  # Adjust as needed
+loss_fn = EntropyMinimizationLoss(h_value)
+
+# Assuming phi_w and x_t are your tensors
+phi_w = torch.randn(10, requires_grad=True)
+x_t = torch.randn(10)
+
+entropy_loss = loss_fn(phi_w, x_t)
+#print(f"Entropy Minimization Loss: {entropy_loss.item()}")

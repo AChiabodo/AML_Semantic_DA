@@ -57,7 +57,7 @@ from tensorboardX import SummaryWriter
 # Datasets
 from datasets.cityscapes import CityScapes
 # Utils
-from utils import poly_lr_scheduler, load_ckpt, preprocess_image
+from utils.general import poly_lr_scheduler, load_ckpt, preprocess_image
 from eval import evaluate_and_save_model
 
 import fda
