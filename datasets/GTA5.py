@@ -7,7 +7,7 @@ import os
 from abc import ABCMeta
 from dataclasses import dataclass
 from typing import Tuple, Optional
-from training.data_augmentation import ExtResize, ExtToTensor, ExtTransforms , ExtCompose
+from utils.aug_utils import ExtResize, ExtToTensor, ExtTransforms , ExtCompose
 from datasets.cityscapes import CityScapes
 class BaseGTALabels(metaclass=ABCMeta):
     pass

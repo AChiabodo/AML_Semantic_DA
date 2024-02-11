@@ -18,7 +18,7 @@ from datasets.cityscapes import CityScapes
 from datasets.GTA5 import GTA5
 # Utils
 from utils import str2bool, load_ckpt
-from training.data_augmentation import ExtCompose, ExtToTensor, ExtRandomHorizontalFlip , ExtScale , ExtRandomCrop, ExtGaussianBlur, ExtColorJitter, ExtRandomCompose
+from utils.aug_utils import ExtCompose, ExtToTensor, ExtRandomHorizontalFlip , ExtScale , ExtRandomCrop, ExtGaussianBlur, ExtColorJitter, ExtRandomCompose
 from training.simple_train import train
 from training.single_layer_da_train import train_da
 from eval import val
@@ -223,7 +223,7 @@ def main():
                 ExtToTensor()],
                 standard_transformations)
             target_transformations = standard_transformations
-            
+
     """The Validation Set is also resized to 0.5 of its original size"""
     eval_transformations = standard_transformations
     

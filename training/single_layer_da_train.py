@@ -45,8 +45,7 @@ def train_da(args, model, optimizer, source_dataloader_train, target_dataloader_
     """
 
     # 1.1 Parameters Initialization
-    writer = SummaryWriter(comment=comment)
-
+    writer = SummaryWriter(comment=comment) # Tensorboard writer
     scaler = amp.GradScaler() # Automatic Mixed Precision
     d_lr = 2e-4 # Discriminator learning rate
     max_lam = 0.0015 # Maximum value for the lambda parameter (used to balance the two losses)
