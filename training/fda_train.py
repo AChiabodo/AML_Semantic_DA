@@ -93,6 +93,7 @@ def train_fda(args, model, optimizer, source_dataloader_train, target_dataloader
             if mean_img.shape[-1] < 2:
                 B, C, H, W = source_data.shape
                 mean_img = IMG_MEAN.repeat(B,1,H,W)
+                mean_img = mean_img.cuda()
 
             # 4.5.4. Apply FDA
             

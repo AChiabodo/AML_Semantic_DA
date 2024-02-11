@@ -36,8 +36,9 @@ def FDA_source_to_target( src_img: tensor, trg_img: tensor, beta=0.1 ):
     trg_clone = trg_img.clone()
 
     # 1. Compute the 2D Fourier Transform of the source and target images
-    fft_src = torch.rfft( src_clone, signal_ndim=2, onesided=False ) 
-    fft_trg = torch.rfft( trg_clone, signal_ndim=2, onesided=False )
+    # output: [batch, channel, height, width] where each value is a complex number
+    fft_src = torch.fft.fft2( src_clone, dim=(-2,-1) )
+    fft_trg = torch.fft.fft2( trg_clone, dim=(-2,-1) )
 
     # 2. Extract the amplitude and phase components of the Fourier Transform
     amp_src, pha_src = extract_ampl_phase( fft_src.clone())
@@ -48,36 +49,43 @@ def FDA_source_to_target( src_img: tensor, trg_img: tensor, beta=0.1 ):
 
     # 4. Recompose the Fourier Transform of the source image with the new amplitude and the original phase
     fft_src_ = torch.zeros( fft_src.size(), dtype=torch.float )
-    fft_src_[:,:,:,:,0] = torch.cos(pha_src.clone()) * amp_src_.clone()
-    fft_src_[:,:,:,:,1] = torch.sin(pha_src.clone()) * amp_src_.clone()
+    fft_src_ = torch.complex( amp_src_ * torch.cos(pha_src), amp_src_ * torch.sin(pha_src) )
 
     # 5. Compute the inverse Fourier Transform to obtain the adapted source image
-    _, _, imgH, imgW = src_img.size()
-    src_in_trg = torch.irfft( fft_src_, signal_ndim=2, onesided=False, signal_sizes=[imgH,imgW] )
+    src_in_trg = torch.fft.ifft2( fft_src_, dim=(-2,-1) )
 
     return src_in_trg
 
 def extract_ampl_phase(fft_im):
     """
       Extract amplitude and phase from the Fourier Transform of an image.
+    
+      The fft_im tensor has 4 dimensions: [batch, channel, height, width]
+      where each value is a complex number.
     """
-    # fft_im: size should be bx3xhxwx2
-    fft_amp = fft_im[:,:,:,:,0]**2 + fft_im[:,:,:,:,1]**2
-    fft_amp = torch.sqrt(fft_amp)
-    fft_pha = torch.atan2( fft_im[:,:,:,:,1], fft_im[:,:,:,:,0] )
-    return fft_amp, fft_pha
+
+    # 1. Compute the amplitude and phase components of the Fourier Transform
+    amplitude = torch.abs(fft_im)
+    phase = torch.angle(fft_im)
+
+    return amplitude, phase
+
 
 def low_freq_mutate( amp_src, amp_trg, beta=0.1 ):
     """
       Swap the low-frequency components of the amplitude spectrum of the source images
       with those of the target images.
     """
+    # 1. Get the size of the low-frequency window to be swapped
     _, _, h, w = amp_src.size()
     b = (  np.floor(np.amin((h,w))*beta)  ).astype(int)     # get b
+
+    # 2. Swap the low-frequency components of the amplitude spectrum
     amp_src[:,:,0:b,0:b]     = amp_trg[:,:,0:b,0:b]      # top left
     amp_src[:,:,0:b,w-b:w]   = amp_trg[:,:,0:b,w-b:w]    # top right
     amp_src[:,:,h-b:h,0:b]   = amp_trg[:,:,h-b:h,0:b]    # bottom left
     amp_src[:,:,h-b:h,w-b:w] = amp_trg[:,:,h-b:h,w-b:w]  # bottom right
+
     return amp_src
 
 
