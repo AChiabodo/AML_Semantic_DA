@@ -14,6 +14,7 @@ from torch import tensor
 from PIL import Image
 import numpy as np
 import torch.nn as nn
+import torch.nn.functional as F
 
 def FDA_source_to_target( src_img: tensor, trg_img: tensor, beta=0.1 ):
     """
@@ -81,46 +82,35 @@ def low_freq_mutate( amp_src, amp_trg, beta=0.1 ):
     return amp_src
 
 
-#TODO: CHECK THE FOLLOWING FUNCTIONS
+#TODO: CHECK THE FOLLOWING FUNCTION
 
-# Preprocessing an image
-def preprocess_image(image):
-    """
-    Esegue il preprocessing su un'immagine.
-    """
-    # Sottrai la media
-    mean = np.mean(image)
-    image = image - mean
-
-    # Normalizza l'immagine
-    std = np.std(image)
-    image = image / std
-
-    return image
-
-#function for loss entropy fro cityscapes (FDA)
 class EntropyMinimizationLoss(nn.Module):
-    def __init__(self, h):
+    def __init__(self):
         super(EntropyMinimizationLoss, self).__init__()
-        self.h = h
 
-    def forward(self, phi_w, x_t):
+    def forward(self, x, ita):
         """
         Computes entropy minimization loss.
 
         Args:
-            phi_w (torch.Tensor): Parameter tensor.
-            x_t (torch.Tensor): Target data tensor.
+        - x: input tensor (tensor)
+        - ita: hyperparameter to control the amount of entropy minimization (float)
 
         Returns:
             torch.Tensor: Entropy minimization loss.
         """
-        log_phi_w = torch.log(phi_w)
-        term1 = -self.h * phi_w
-        term2 = log_phi_w
-        rho_term = torch.sum(torch.abs(term1 - term2))
 
-        return rho_term
+        P = F.softmax(x, dim=1)        # [B, 19, H, W]
+        logP = F.log_softmax(x, dim=1) # [B, 19, H, W]
+        PlogP = P * logP               # [B, 19, H, W]
+        ent = -1.0 * PlogP.sum(dim=1)  # [B, 1, H, W]
+        ent = ent / 2.9444         # chanage when classes is not 19
+        # compute robust entropy
+        ent = ent ** 2.0 + 1e-8
+        ent = ent ** ita
+        ent_loss_value = ent.mean()
+
+        return ent_loss_value
 
 # Example usage:
 h_value = 0.5  # Adjust as needed

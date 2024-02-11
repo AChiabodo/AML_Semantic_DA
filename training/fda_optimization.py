@@ -58,9 +58,9 @@ from tensorboardX import SummaryWriter
 from datasets.cityscapes import CityScapes
 # Utils
 from utils.general import poly_lr_scheduler, load_ckpt, preprocess_image
+from utils.fda import FDA_source_to_target
 from eval import evaluate_and_save_model
 
-import fda
 
 
 def train(args, model, optimizer, dataloader_train, dataloader_val, comment=''):

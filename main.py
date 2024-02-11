@@ -21,6 +21,7 @@ from utils.general import str2bool, load_ckpt
 from utils.aug import ExtCompose, ExtToTensor, ExtRandomHorizontalFlip , ExtScale , ExtRandomCrop, ExtGaussianBlur, ExtColorJitter, ExtRandomCompose
 from training.simple_train import train
 from training.single_layer_da_train import train_da
+from training.fda_train import train_fda
 from eval import val
 
 
@@ -43,7 +44,7 @@ def parse_args():
                        dest='mode',
                        type=str,
                        default='train_da',
-                       help='Select between simple training (train), training with Domain Adaptation (train_da) or testing an already trained model (test)'
+                       help='Select between simple training (train), training with Domain Adaptation (train_da), training with Fourier Domain Adaptation (train_fda) or testing an already trained model (test)'
     )
     parse.add_argument('--backbone',
                        dest='backbone',
@@ -230,7 +231,7 @@ def main():
     # 3. Datasets Selection
     if args.dataset == 'CITYSCAPES':
         print('training on CityScapes')
-        train_dataset = CityScapes(split = 'train',transforms=transformations)
+        train_dataset = CityScapes(split='train',transforms=transformations)
         val_dataset = CityScapes(split='val',transforms=eval_transformations)
 
     elif args.dataset == 'GTA5':
@@ -241,8 +242,8 @@ def main():
     elif args.dataset == 'CROSS_DOMAIN':
         print('training on GTA and validating on Cityscapes')
         train_dataset = GTA5(root='dataset',transforms=transformations)
-        target_dataset_train = CityScapes(split = 'train',transforms=target_transformations)
-        val_dataset = CityScapes(split = 'val',transforms=eval_transformations)
+        target_dataset_train = CityScapes(split='train',transforms=target_transformations)
+        val_dataset = CityScapes(split='val',transforms=eval_transformations)
     else:
         print('not supported dataset \n')
         return None
@@ -314,12 +315,15 @@ def main():
     match args.mode:
         case 'train':
             # 10.1. Simple Training on Source Dataset
-            train(args, model, optimizer, source_dataloader_train, dataloader_val, comment="_{}_{}_{}_{}".format(args.mode,args.dataset,args.batch_size,args.learning_rate))
+            train(args, model, optimizer, source_dataloader_train, dataloader_val, comment=args.comment)
         case 'train_da':
             # 10.2. Training with Domain Adaptation
             train_da(args, model, optimizer, source_dataloader_train, target_dataloader_train, dataloader_val, comment=args.comment)
+        case 'train_fda':
+            # 10.3. Training with Fourier Domain Adaptation
+            train_fda(args, model, optimizer, source_dataloader_train, target_dataloader_train, dataloader_val, comment=args.comment)
         case 'test':
-            # 10.3. Load the trained model and evaluate it on the Validation Set
+            # 10.4. Load the trained model and evaluate it on the Validation Set
             try:
                 load_ckpt(args, model=model)
                 print('successfully resume model from %s' % args.resume_model_path)
