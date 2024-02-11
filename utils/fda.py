@@ -31,10 +31,9 @@ def FDA_source_to_target( src_img: tensor, trg_img: tensor, beta=0.1 ):
             the size of the low-frequency window to be swapped
     """
 
-    # 0. Resize the target image to match the size of the source image
+    # 0. Clone the source and target images
     src_clone = src_img.clone()
     trg_clone = trg_img.clone()
-    trg_clone = trg_clone.resize( (src_clone.size(3), src_clone.size(2)), Image.BICUBIC )
 
     # 1. Compute the 2D Fourier Transform of the source and target images
     fft_src = torch.rfft( src_clone, signal_ndim=2, onesided=False ) 
@@ -111,14 +110,3 @@ class EntropyMinimizationLoss(nn.Module):
         ent_loss_value = ent.mean()
 
         return ent_loss_value
-
-# Example usage:
-h_value = 0.5  # Adjust as needed
-loss_fn = EntropyMinimizationLoss(h_value)
-
-# Assuming phi_w and x_t are your tensors
-phi_w = torch.randn(10, requires_grad=True)
-x_t = torch.randn(10)
-
-entropy_loss = loss_fn(phi_w, x_t)
-#print(f"Entropy Minimization Loss: {entropy_loss.item()}")

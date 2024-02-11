@@ -18,7 +18,7 @@ from datasets.cityscapes import CityScapes
 from datasets.GTA5 import GTA5
 # Utils
 from utils.general import str2bool, load_ckpt
-from utils.aug import ExtCompose, ExtToTensor, ExtRandomHorizontalFlip , ExtScale , ExtRandomCrop, ExtGaussianBlur, ExtColorJitter, ExtRandomCompose
+from utils.aug import ExtCompose, ExtToTensor, ExtRandomHorizontalFlip , ExtScale , ExtRandomCrop, ExtGaussianBlur, ExtColorJitter, ExtRandomCompose, ExtResize
 from training.simple_train import train
 from training.single_layer_da_train import train_da
 from training.fda_train import train_fda
@@ -187,9 +187,12 @@ def main():
             No Data Augmentation
             - Images are resized to 0.5 of their original size to reduce computational cost
             - No extra transformations are applied to the dataset
+            - For FDA, GTA5 images are resized to half the size of the Cityscapes images
             """
             transformations = standard_transformations
             target_transformations = standard_transformations
+            if args.mode == 'train_fda':
+                transformations = ExtCompose([ExtResize((512,1024)), ExtToTensor()])
         case 1:
             """
             Feeble Data Augmentation -> 50% probability to be applied

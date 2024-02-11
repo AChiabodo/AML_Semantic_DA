@@ -3,8 +3,6 @@ import os
 from collections import namedtuple
 import random
 from typing import Any, Callable, Dict, List, Optional, Tuple, Union
-import cv2
-import fda
 
 
 from PIL import Image

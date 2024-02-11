@@ -22,6 +22,9 @@ from eval import evaluate_and_save_model
 IMG_MEAN = np.array((104.00698793, 116.66876762, 122.67891434), dtype=np.float32)
 IMG_MEAN = torch.reshape(torch.from_numpy(IMG_MEAN), (1,3,1,1))
 
+# COMMAND LINE
+# python main.py --mode train_fda --dataset CROSS_DOMAIN --save_model_path trained_models\bea_fda --comment bea_fda --data_transformation 0 --batch_size 5 --num_workers 4 --optimizer adam --crop_height 526 --crop_width 957
+
 def train_fda(args, model, optimizer, source_dataloader_train, target_dataloader_train, target_dataloader_val, comment='', starting_epoch=0,
               beta=0.09, ent_weight=0.005, ita=2.0):
     """
