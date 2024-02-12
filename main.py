@@ -9,7 +9,7 @@ import argparse
 import random
 import os
 from tensorboardX import SummaryWriter
-
+import numpy as np
 # PERSONAL
 # Models
 from model.model_stages import BiSeNet
@@ -18,12 +18,14 @@ from datasets.cityscapes import CityScapes
 from datasets.GTA5 import GTA5
 # Utils
 from utils.general import str2bool, load_ckpt
-from utils.aug import ExtCompose, ExtToTensor, ExtRandomHorizontalFlip , ExtScale , ExtRandomCrop, ExtGaussianBlur, ExtColorJitter, ExtRandomCompose, ExtResize
+from utils.aug import ExtCompose, ExtToTensor, ExtRandomHorizontalFlip , ExtScale , ExtRandomCrop, ExtGaussianBlur, ExtColorJitter, ExtRandomCompose, ExtResize, ExtNormalize
 from training.simple_train import train
 from training.single_layer_da_train import train_da
 from training.fda_train import train_fda
 from eval import val
 
+IMG_MEAN = np.array((104.00698793, 116.66876762, 122.67891434), dtype=np.float32)
+IMG_MEAN = torch.reshape(torch.from_numpy(IMG_MEAN), (3,1,1))
 
 """
   LAST TRAINING TRIALS:
@@ -32,7 +34,7 @@ from eval import val
   
   --mode train_da --dataset CROSS_DOMAIN --save_model_path trained_models\adv_single_layer_lam0.001_softmax_resumed --comment adv_single_layer_lam0.005_softmax --data_transformation 0 --batch_size 4 --learning_rate 0.002 --num_workers 4 --optimizer sgd --resume True --resume_model_path trained_models\avd_single_layer_lam0.005_softmax\best.pth
 
-  & C:/Users/aless/Documents/Codice/AML_Semantic_DA/.venv/Scripts/python.exe c:/Users/aless/Documents/Codice/AML_Semantic_DA/train.py 
+  & C:/Users/aless/Documents/Codice/AML_Semantic_DA/.venv/Scripts/python.exe c:/Users/aless/Documents/Codice/AML_Semantic_DA/main.py 
   --mode train --dataset CROSS_DOMAIN --save_model_path trained_models\bea_data_augm_test --comment bea_data_augm_test --data_transformation 2 --batch_size 5 --num_workers 4 --optimizer adam --crop_height 526 --crop_width 957
 """
 
@@ -81,7 +83,7 @@ def parse_args():
     )
     parse.add_argument('--validation_step',
                        type=int,
-                       default=2,
+                       default=5,
                        help='How often (epochs) to evaluate the model on the validation set to check its performance'
     )
     parse.add_argument('--crop_height',
@@ -179,7 +181,7 @@ def main():
     # 2. Data Transformations Selection
         
     """By default, the images are resized to 0.5 of their original size to reduce computational cost"""
-    standard_transformations = ExtCompose([ExtScale(0.5,interpolation=Image.Resampling.BILINEAR), ExtToTensor()])
+    standard_transformations = ExtCompose([ExtScale(0.5,interpolation=Image.Resampling.BILINEAR), ExtToTensor(),ExtNormalize(IMG_MEAN)])
 
     match args.data_transformations:
         case 0:

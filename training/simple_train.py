@@ -31,7 +31,7 @@ def train(args, model, optimizer, dataloader_train, dataloader_val, comment=''):
     loss_func = torch.nn.CrossEntropyLoss(ignore_index=255)
     max_miou = 0 # Best mIoU on the validation set
     step = 0 # Number of iterations
-
+    starting_epoch = 0 # Starting epoch
     # 1. Resume Model from Checkpoint
     if args.resume:
         try:

@@ -149,6 +149,20 @@ class ExtScale(ExtTransforms):
         target_size = ( int(img.size[1]*self.scale), int(img.size[0]*self.scale) ) # (H, W)
         return F.resize(img, target_size, self.interpolation), F.resize(lbl, target_size, Image.NEAREST)
 
+class ExtNormalize(ExtTransforms):
+    """
+    Subtract the mean image from the input PIL Image and its label.
+
+    Args:
+    - mean: Mean image to be subtracted
+    """
+
+    def __init__(self, mean):
+        self.mean = mean
+
+    def __call__(self, img : Image, lbl : Image) -> (Image, Image):
+        return img - self.mean, lbl
+
 # Crop
 class ExtRandomCrop(ExtTransforms):
     """
