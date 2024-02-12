@@ -16,7 +16,7 @@ import numpy as np
 import torch.nn as nn
 import torch.nn.functional as F
 
-def FDA_source_to_target( src_img: tensor, trg_img: tensor, beta=0.1 ):
+def FDA_source_to_target( src_img: tensor, trg_img: tensor, beta=0.05 ):
     """
     Pperforms Fourier Domain Adaptation (FDA) from source to target domain.
 
@@ -48,11 +48,13 @@ def FDA_source_to_target( src_img: tensor, trg_img: tensor, beta=0.1 ):
     amp_src_ = low_freq_mutate( amp_src.clone(), amp_trg.clone(), beta )
 
     # 4. Recompose the Fourier Transform of the source image with the new amplitude and the original phase
-    fft_src_ = torch.zeros( fft_src.size(), dtype=torch.float )
+    #fft_src_ = torch.zeros( fft_src.size(), dtype=torch.float )
     fft_src_ = torch.complex( amp_src_ * torch.cos(pha_src), amp_src_ * torch.sin(pha_src) )
 
     # 5. Compute the inverse Fourier Transform to obtain the adapted source image
     src_in_trg = torch.fft.ifft2( fft_src_, dim=(-2,-1) )
+
+    src_in_trg = torch.real(src_in_trg)
 
     return src_in_trg
 
@@ -111,7 +113,7 @@ class EntropyMinimizationLoss(nn.Module):
         logP = F.log_softmax(x, dim=1) # [B, 19, H, W]
         PlogP = P * logP               # [B, 19, H, W]
         ent = -1.0 * PlogP.sum(dim=1)  # [B, 1, H, W]
-        ent = ent / 2.9444         # chanage when classes is not 19
+        ent = ent / 2.9444         # change when classes is not 19
         # compute robust entropy
         ent = ent ** 2.0 + 1e-8
         ent = ent ** ita

@@ -9,7 +9,6 @@ from tensorboardX import SummaryWriter
 
 # PERSONAL
 # Models
-from model.model_stages import BiSeNetDiscriminator
 # Datasets
 from datasets.cityscapes import CityScapes
 # Utils
@@ -26,7 +25,7 @@ IMG_MEAN = torch.reshape(torch.from_numpy(IMG_MEAN), (1,3,1,1))
 # python main.py --mode train_fda --dataset CROSS_DOMAIN --save_model_path trained_models\bea_fda --comment bea_fda --data_transformation 0 --batch_size 5 --num_workers 4 --optimizer adam --crop_height 526 --crop_width 957
 
 def train_fda(args, model, optimizer, source_dataloader_train, target_dataloader_train, target_dataloader_val, comment='', starting_epoch=0,
-              beta=0.09, ent_weight=0.005, ita=2.0):
+              beta=0.01, ent_weight=0.005, ita=2.0):
     """
     Train the model using `Fourier Domain Adaptation (DA)` for semantic segmentation tasks. 
     
@@ -69,7 +68,7 @@ def train_fda(args, model, optimizer, source_dataloader_train, target_dataloader
 
         # 4.2. Set up the model to train mode
         model.train()
-        tq = tqdm(total=len(source_dataloader_train) * args.batch_size)
+        tq = tqdm(total= min(len(source_dataloader_train),len(target_dataloader_train)) * args.batch_size)
         tq.set_description('epoch %d, lr %f' % (epoch, lr))
         loss_record = [] # Loss for each batch
 
@@ -106,13 +105,13 @@ def train_fda(args, model, optimizer, source_dataloader_train, target_dataloader
             t_source_data = FDA_source_to_target(source_data, target_data, beta)
 
             # FDA.2. Subtract the mean image from the source and target images for normalization
-            t_source_data = t_source_data - mean_img
-            target_data = target_data - mean_img
+            #t_source_data = t_source_data - mean_img
+            #target_data = target_data - mean_img
 
             # FDA.3. Get the predictions for the source images
             with amp.autocast():
 
-                print("size of source_data: ", t_source_data.size())
+                #print("size of source_data: ", t_source_data.size())
                 
                 # FDA.3.1. Forward pass -> multi-scale outputs
                 s_output, s_out16, s_out32 = model(t_source_data)

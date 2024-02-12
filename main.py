@@ -43,7 +43,7 @@ def parse_args():
     parse.add_argument('--mode',
                        dest='mode',
                        type=str,
-                       default='train_da',
+                       default='train_fda',
                        help='Select between simple training (train), training with Domain Adaptation (train_da), training with Fourier Domain Adaptation (train_fda) or testing an already trained model (test)'
     )
     parse.add_argument('--backbone',
@@ -81,7 +81,7 @@ def parse_args():
     )
     parse.add_argument('--validation_step',
                        type=int,
-                       default=5,
+                       default=2,
                        help='How often (epochs) to evaluate the model on the validation set to check its performance'
     )
     parse.add_argument('--crop_height',
@@ -96,7 +96,7 @@ def parse_args():
     )
     parse.add_argument('--batch_size',
                        type=int,
-                       default=4, #2
+                       default=5, #2
                        help='Number of images in each batch'
     )
     parse.add_argument('--learning_rate',

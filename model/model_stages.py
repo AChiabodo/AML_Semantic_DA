@@ -319,8 +319,6 @@ class BiSeNet(nn.Module):
         self.init_weight()
 
     def forward(self, x):
-
-        print("x.size(): ", x.size())
         
         H, W = x.size()[2:]
 
