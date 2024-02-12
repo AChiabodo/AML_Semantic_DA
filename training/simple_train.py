@@ -14,6 +14,8 @@ from datasets.cityscapes import CityScapes
 from utils.general import poly_lr_scheduler, load_ckpt
 from eval import evaluate_and_save_model
 
+MEAN = torch.tensor([0.485, 0.456, 0.406])
+STD = torch.tensor([0.229, 0.224, 0.225])
 
 def train(args, model, optimizer, dataloader_train, dataloader_val, comment=''):
     """
@@ -87,7 +89,8 @@ def train(args, model, optimizer, dataloader_train, dataloader_val, comment=''):
 
                     writer.add_image('epoch%d/iter%d/predicted_labels' % (epoch, i), np.array(colorized_predictions), step, dataformats='HWC')
                     writer.add_image('epoch%d/iter%d/correct_labels' % (epoch, i), np.array(colorized_labels), step, dataformats='HWC')
-                    writer.add_image('epoch%d/iter%d/original_data' % (epoch, i), np.array(data[0].cpu(),dtype='uint8'), step, dataformats='CHW')
+                    original_data = data[0].cpu()* STD[:, None, None] + MEAN[:, None, None]
+                    writer.add_image('epoch%d/iter%d/original_data' % (epoch, i), np.array(original_data,dtype='uint8'), step, dataformats='CHW')
                     writer.add_image('epoch%d/iter%d/predicted_labels_16' % (epoch, i), np.array(colorized_predictions_16), step, dataformats='HWC')
                     writer.add_image('epoch%d/iter%d/predicted_labels_32' % (epoch, i), np.array(colorized_predictions_32), step, dataformats='HWC')
 

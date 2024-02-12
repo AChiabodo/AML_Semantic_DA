@@ -38,6 +38,12 @@ IMG_MEAN = torch.reshape(torch.from_numpy(IMG_MEAN), (3,1,1))
   --mode train --dataset CROSS_DOMAIN --save_model_path trained_models\bea_data_augm_test --comment bea_data_augm_test --data_transformation 2 --batch_size 5 --num_workers 4 --optimizer adam --crop_height 526 --crop_width 957
 """
 
+"""
+Used Training Commands:
+    GTA5  :  main.py --dataset GTA5 --data_transformations 0 --batch_size 10 --learning_rate 0.01 --num_epochs 50 --save_model_path trained_models\test_norm --resume False --comment test_norm --mode train --num_workers 4 --optimizer sgd
+    CityScapes : main.py --dataset Cityscapes --data_transformations 0 --batch_size 10 --learning_rate 0.01 --num_epochs 50 --save_model_path trained_models\test_norm --resume False --comment test_norm --mode train --num_workers 4 --optimizer sgd
+"""
+
 def parse_args():
     """Parse input arguments from command line"""
     parse = argparse.ArgumentParser()
@@ -181,7 +187,7 @@ def main():
     # 2. Data Transformations Selection
         
     """By default, the images are resized to 0.5 of their original size to reduce computational cost"""
-    standard_transformations = ExtCompose([ExtScale(0.5,interpolation=Image.Resampling.BILINEAR), ExtToTensor(),ExtNormalize(IMG_MEAN)])
+    standard_transformations = ExtCompose([ExtScale(0.5,interpolation=Image.Resampling.BILINEAR), ExtToTensor(),ExtNormalize()])
 
     match args.data_transformations:
         case 0:
