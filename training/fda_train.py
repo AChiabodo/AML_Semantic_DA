@@ -50,7 +50,7 @@ def train_fda(args, model, optimizer, source_dataloader_train, target_dataloader
     # 2. Resume Model from Checkpoint
     if args.resume:
         try:
-            max_miou, starting_epoch = load_ckpt(args, optimizer=optimizer, model=model, discriminator=discr, discriminator_optimizer=discr_optim)
+            max_miou, starting_epoch = load_ckpt(args, optimizer=optimizer, model=model)
             print('successfully resume model from %s' % args.resume_model_path)
         except Exception as e:
             print(e)
@@ -103,17 +103,19 @@ def train_fda(args, model, optimizer, source_dataloader_train, target_dataloader
 
             # FDA.1. Apply FDA to the source images to adapt their appearance to the target domain
             original_source_data = source_data.clone()
-            source_data = FDA_source_to_target(source_data, target_data, beta)
+            t_source_data = FDA_source_to_target(source_data, target_data, beta)
 
             # FDA.2. Subtract the mean image from the source and target images for normalization
-            source_data = source_data - mean_img
+            t_source_data = t_source_data - mean_img
             target_data = target_data - mean_img
 
             # FDA.3. Get the predictions for the source images
             with amp.autocast():
+
+                print("size of source_data: ", t_source_data.size())
                 
                 # FDA.3.1. Forward pass -> multi-scale outputs
-                s_output, s_out16, s_out32 = model(source_data)
+                s_output, s_out16, s_out32 = model(t_source_data)
                 
                 # FDA.3.2. Compute the segmentation loss for the source domain
                 ce_loss1 = ce_loss(s_output, source_label.squeeze(1))
@@ -150,7 +152,7 @@ def train_fda(args, model, optimizer, source_dataloader_train, target_dataloader
                 writer.add_image('epoch%d/iter%d/predicted_labels' % (epoch, i), np.array(colorized_predictions), step, dataformats='HWC')
                 writer.add_image('epoch%d/iter%d/correct_labels' % (epoch, i), np.array(colorized_labels), step, dataformats='HWC')
                 writer.add_image('epoch%d/iter%d/original_data' % (epoch, i), np.array(original_source_data[0].cpu(),dtype='uint8'), step, dataformats='CHW')
-                writer.add_image('epoch%d/iter%d/stylized_data' % (epoch, i), np.array(source_data[0].cpu(),dtype='uint8'), step, dataformats='CHW')
+                writer.add_image('epoch%d/iter%d/stylized_data' % (epoch, i), np.array(t_source_data[0].cpu(),dtype='uint8'), step, dataformats='CHW')
                 #writer.add_image('epoch%d/iter%d/predicted_labels_16' % (epoch, i), np.array(colorized_predictions_16), step, dataformats='HWC')
                 #writer.add_image('epoch%d/iter%d/predicted_labels_32' % (epoch, i), np.array(colorized_predictions_32), step, dataformats='HWC')
 

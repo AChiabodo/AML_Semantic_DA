@@ -152,14 +152,3 @@ class CityScapes(VisionDataset):
         colorized_preds = Image.fromarray(colorized_preds[0]) # to PIL Image
         colorized_labels = Image.fromarray(colorized_labels[0])
         return colorized_preds , colorized_labels
-    
-
-    def apply_fda(self, source_im, beta=0.005):
-        """
-        Applica l'Adattamento nel Dominio di Fourier (FDA) a un'immagine sorgente.
-        """
-        # Scegli un'immagine target casuale dal dataset Cityscapes
-        target_im = random.choice(self.images).cuda()  # sostituisci 'self.images' con il tuo dataset di immagini Cityscapes
-
-        # Applica FDA all'immagine sorgente
-        return fda.fda(source_im, target_im, beta=beta)
