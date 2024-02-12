@@ -33,7 +33,7 @@ import numpy as np
 import random
 import numbers
 from typing import Optional, List
-
+from torchvision.transforms import Normalize
 
 ##############
 # BASE CLASS #
@@ -157,11 +157,13 @@ class ExtNormalize(ExtTransforms):
     - mean: Mean image to be subtracted
     """
 
-    def __init__(self, mean):
+    def __init__(self, mean=[0.485, 0.456, 0.406],std=[0.229, 0.224, 0.225]):
         self.mean = mean
+        self.std = std
 
     def __call__(self, img : Image, lbl : Image) -> (Image, Image):
-        return img - self.mean, lbl
+        
+        return Normalize(mean=self.mean, std=self.std)(img), lbl
 
 # Crop
 class ExtRandomCrop(ExtTransforms):
