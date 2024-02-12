@@ -362,7 +362,7 @@ def load_ckpt(args, model, optimizer = None, discriminator=None, discriminator_o
 	
 	# 4. If we're resuming training, also load the optimizer state dict, the current epoch and the best score so far
 	if args.resume:
-		optimizer.load_state_dict(checkpoint["optimizer_state_dict"])
+		optimizer.load_state_dict(checkpoint["optimizer_state_dict"]) if optimizer is not None else None
 		if verbose :
 			print("Optimizer restored from %s" % args.resume_model_path)
 		cur_epoch = checkpoint["cur_epoch"]  # carica l'epoca corrente
