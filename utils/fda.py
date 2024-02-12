@@ -37,8 +37,8 @@ def FDA_source_to_target( src_img: tensor, trg_img: tensor, beta=0.05 ):
 
     # 1. Compute the 2D Fourier Transform of the source and target images
     # output: [batch, channel, height, width] where each value is a complex number
-    fft_src = torch.fft.fft2( src_clone, dim=(-2,-1) )
-    fft_trg = torch.fft.fft2( trg_clone, dim=(-2,-1) )
+    fft_src = torch.view_as_real(torch.fft.fft2(src_clone))
+    fft_trg = torch.view_as_real(torch.fft.fft2(trg_clone))
 
     # 2. Extract the amplitude and phase components of the Fourier Transform
     amp_src, pha_src = extract_ampl_phase( fft_src.clone())
@@ -48,29 +48,36 @@ def FDA_source_to_target( src_img: tensor, trg_img: tensor, beta=0.05 ):
     amp_src_ = low_freq_mutate( amp_src.clone(), amp_trg.clone(), beta )
 
     # 4. Recompose the Fourier Transform of the source image with the new amplitude and the original phase
-    #fft_src_ = torch.zeros( fft_src.size(), dtype=torch.float )
-    fft_src_ = torch.complex( amp_src_ * torch.cos(pha_src), amp_src_ * torch.sin(pha_src) )
+    fft_src_ = torch.zeros( fft_src.size(), dtype=torch.float )
+    fft_src_[:,:,:,:,0] = torch.cos(pha_src.clone()) * amp_src_.clone()
+    fft_src_[:,:,:,:,1] = torch.sin(pha_src.clone()) * amp_src_.clone()
 
     # 5. Compute the inverse Fourier Transform to obtain the adapted source image
-    src_in_trg = torch.fft.ifft2( fft_src_, dim=(-2,-1) )
+    src_in_trg = torch.fft.ifft2( torch.view_as_complex(fft_src_) )
 
+    # 6. ATTENTION! Clamp the pixel values to be in the range [0, 255] 
+    # (the Fourier Transform may introduce out-of-range values for very bright/dark areas)
+    # This is done to avoid areas with random "burned" colors
     src_in_trg = torch.real(src_in_trg)
-
+    src_in_trg = torch.clamp(src_in_trg, 0, 255)
+    
     return src_in_trg
 
 def extract_ampl_phase(fft_im):
     """
       Extract amplitude and phase from the Fourier Transform of an image.
     
-      The fft_im tensor has 4 dimensions: [batch, channel, height, width]
-      where each value is a complex number.
+      The fft_im tensor has 5 dimensions: [batch, channel, height, width, complex]
+      The last dimension is a complex number
+      - fft_im[:,:,:,:,0] is the real part
+      - fft_im[:,:,:,:,1] is the imaginary part
     """
 
     # 1. Compute the amplitude and phase components of the Fourier Transform
-    amplitude = torch.abs(fft_im)
-    phase = torch.angle(fft_im)
-
-    return amplitude, phase
+    fft_amp = fft_im[:,:,:,:,0]**2 + fft_im[:,:,:,:,1]**2
+    fft_amp = torch.sqrt(fft_amp)
+    fft_pha = torch.atan2( fft_im[:,:,:,:,1], fft_im[:,:,:,:,0] )
+    return fft_amp, fft_pha
 
 
 def low_freq_mutate( amp_src, amp_trg, beta=0.1 ):
@@ -83,13 +90,16 @@ def low_freq_mutate( amp_src, amp_trg, beta=0.1 ):
     b = (  np.floor(np.amin((h,w))*beta)  ).astype(int)     # get b
 
     # 2. Swap the low-frequency components of the amplitude spectrum
-    amp_src[:,:,0:b,0:b]     = amp_trg[:,:,0:b,0:b]      # top left
-    amp_src[:,:,0:b,w-b:w]   = amp_trg[:,:,0:b,w-b:w]    # top right
-    amp_src[:,:,h-b:h,0:b]   = amp_trg[:,:,h-b:h,0:b]    # bottom left
-    amp_src[:,:,h-b:h,w-b:w] = amp_trg[:,:,h-b:h,w-b:w]  # bottom right
+    amp_src[:,:,0:b,0:b] = amp_trg[:,:,0:b,0:b]
+
+    # ATTENTION: We've intentionally omitted this part from the original implementation
+    # It's not clear why also the high-frequency components are swapped
+    # The results are better without this part
+    # amp_src[:,:,0:b,w-b:w]   = amp_trg[:,:,0:b,w-b:w]    # top right
+    # amp_src[:,:,h-b:h,0:b]   = amp_trg[:,:,h-b:h,0:b]    # bottom left
+    # amp_src[:,:,h-b:h,w-b:w] = amp_trg[:,:,h-b:h,w-b:w]  # bottom right
 
     return amp_src
-
 
 #TODO: CHECK THE FOLLOWING FUNCTION
 
