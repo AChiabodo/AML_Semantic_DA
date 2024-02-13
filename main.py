@@ -24,9 +24,13 @@ from training.single_layer_da_train import train_da
 from training.fda_train import train_fda
 from eval import val
 
-IMG_MEAN = np.array((104.00698793, 116.66876762, 122.67891434), dtype=np.float32)
-IMG_MEAN = torch.reshape(torch.from_numpy(IMG_MEAN), (3,1,1))
-
+# GLOBAL VARIABLES
+# Image mean of the Cityscapes dataset (used for normalization)
+MEAN_ImageNet = torch.tensor([0.485, 0.456, 0.406])
+STD_ImageNet = torch.tensor([0.229, 0.224, 0.225])
+# Image mean of the Cityscapes dataset (used for normalization)
+MEAN_CS = torch.tensor([104.00698793, 116.66876762, 122.67891434])
+STD_CS = torch.tensor([1.0, 1.0, 1.0])
 """
   LAST TRAINING TRIALS:
 
@@ -43,7 +47,10 @@ Used Training Commands:
     GTA5  :  main.py --dataset GTA5 --data_transformations 0 --batch_size 10 --learning_rate 0.01 --num_epochs 50 --save_model_path trained_models\test_norm_gta --resume False --comment test_norm --mode train --num_workers 4 --optimizer sgd
     CityScapes : main.py --dataset Cityscapes --data_transformations 0 --batch_size 10 --learning_rate 0.01 --num_epochs 50 --save_model_path trained_models\test_norm_city --resume False --comment test_norm --mode train --num_workers 4 --optimizer sgd
     DA    : main.py --dataset CROSS_DOMAIN --data_transformations 0 --batch_size 5 --learning_rate 0.01 --num_epochs 50 --save_model_path trained_models\test_norm_da --resume False --comment test_norm_da --mode train_da --num_workers 4 --optimizer sgd
-"""
+    FDA   : main.py --dataset CROSS_DOMAIN --data_transformations 0 --batch_size 5 --learning_rate 0.01 --num_epochs 50 --save_model_path trained_models\test_norm_fda --resume False --comment test_norm_fda --mode train_fda --num_workers 4 --optimizer sgd
+    
+    Eval : main.py --mode test --dataset CROSS_DOMAIN --save_model_path trained_models\test_norm_fda --comment test_norm_fda --num_workers 4
+    """
 
 def parse_args():
     """Parse input arguments from command line"""
@@ -173,6 +180,11 @@ def parse_args():
                        default=0,
                        help='Select transformations to be applied on the dataset images (0: no transformations, 1 : data augmentation)'
     )
+    parse.add_argument('--beta',
+                       type=float,
+                       default=0.05,
+                       help='Select beta for the Fourier Domain Adaptation'
+    )
     return parse.parse_args()
 
 def main():
@@ -188,7 +200,9 @@ def main():
     # 2. Data Transformations Selection
         
     """By default, the images are resized to 0.5 of their original size to reduce computational cost"""
-    standard_transformations = ExtCompose([ExtScale(0.5,interpolation=Image.Resampling.BILINEAR), ExtToTensor(),ExtNormalize()])
+    standard_transformations = ExtCompose([ExtScale(0.5,interpolation=Image.Resampling.BILINEAR), ExtToTensor(),ExtNormalize(mean=MEAN_ImageNet,std=STD_ImageNet)])
+    """The Validation Set is also resized to 0.5 of its original size"""
+    eval_transformations = standard_transformations
 
     match args.data_transformations:
         case 0:
@@ -200,8 +214,12 @@ def main():
             """
             transformations = standard_transformations
             target_transformations = standard_transformations
+            
             if args.mode == 'train_fda':
                 transformations = ExtCompose([ExtResize((512,1024)), ExtToTensor()])
+                target_transformations = transformations
+                eval_transformations = ExtCompose([ExtResize((512,1024)), ExtToTensor(),ExtNormalize(mean=MEAN_CS,std=torch.tensor([1.0,1.0,1.0]))])
+                
         case 1:
             """
             Feeble Data Augmentation -> 50% probability to be applied
@@ -217,6 +235,7 @@ def main():
                 ExtToTensor()],
                 standard_transformations)
             target_transformations = standard_transformations
+
         case 2:
             """
             Precise Data Augmentation -> 50% probability to be applied
@@ -237,8 +256,7 @@ def main():
                 standard_transformations)
             target_transformations = standard_transformations
 
-    """The Validation Set is also resized to 0.5 of its original size"""
-    eval_transformations = standard_transformations
+    
     
     # 3. Datasets Selection
     if args.dataset == 'CITYSCAPES':
@@ -333,7 +351,7 @@ def main():
             train_da(args, model, optimizer, source_dataloader_train, target_dataloader_train, dataloader_val, comment=args.comment)
         case 'train_fda':
             # 10.3. Training with Fourier Domain Adaptation
-            train_fda(args, model, optimizer, source_dataloader_train, target_dataloader_train, dataloader_val, comment=args.comment)
+            train_fda(args, model, optimizer, source_dataloader_train, target_dataloader_train, dataloader_val, comment=args.comment,beta=args.beta)
         case 'test':
             # 10.4. Load the trained model and evaluate it on the Validation Set
             try:

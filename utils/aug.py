@@ -154,7 +154,7 @@ class ExtNormalize(ExtTransforms):
     Subtract the mean image from the input PIL Image and its label.
 
     Args:
-    - mean: Mean image to be subtracted
+    - mean: Mean image to be subtracted. Default is the ImageNet mean.
     """
 
     def __init__(self, mean=[0.485, 0.456, 0.406],std=[0.229, 0.224, 0.225]):

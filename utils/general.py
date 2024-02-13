@@ -346,7 +346,7 @@ def save_ckpt(args,model, best_score, cur_epoch, optimizer= None, discriminator=
 
 # Load model checkpoint
 def load_ckpt(args, model, optimizer = None, discriminator=None, discriminator_optimizer=None, verbose=False) -> (float, int):
-	
+	best_score = 0
 	# 1. Check if the model path is specified, otherwise load the best model trained so far
 	if args.resume_model_path == '':
 		args.resume_model_path = os.path.join(args.save_model_path, 'best.pth')

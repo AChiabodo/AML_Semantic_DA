@@ -10,8 +10,10 @@ from datasets.cityscapes import CityScapes
 # Utils
 from utils.general import reverse_one_hot, compute_global_accuracy, fast_hist, per_class_iu, save_ckpt
 
+MEAN_ImageNet = torch.tensor([0.485, 0.456, 0.406])
+STD_ImageNet = torch.tensor([0.229, 0.224, 0.225])
 
-def val(args, model, dataloader, writer = None , epoch = None, step = None):
+def val(args, model, dataloader, writer = None , epoch = None, step = None, mean = MEAN_ImageNet, std = STD_ImageNet):
     """
     Evaluate the current model on the validation set by computing:
     - Precision per pixel
@@ -51,6 +53,7 @@ def val(args, model, dataloader, writer = None , epoch = None, step = None):
                 colorized_predictions , colorized_labels = CityScapes.visualize_prediction(predict, label)
                 writer.add_image('eval%d/iter%d/predicted_eval_labels' % (epoch, i), np.array(colorized_predictions), step, dataformats='HWC')
                 writer.add_image('eval%d/iter%d/correct_eval_labels' % (epoch, i), np.array(colorized_labels), step, dataformats='HWC')
+                data = data.cpu() * std[:, None, None] + mean[:, None, None]
                 writer.add_image('eval%d/iter%d/eval_original _data' % (epoch, i), np.array(data[0].cpu(),dtype='uint8'), step, dataformats='CHW')
 
             # 3.4. Get the predicted label
@@ -80,7 +83,7 @@ def val(args, model, dataloader, writer = None , epoch = None, step = None):
 
         return precision, miou
 
-def evaluate_and_save_model(args, model, dataloader_val, writer, epoch, step, max_miou):
+def evaluate_and_save_model(args, model, dataloader_val, writer, epoch, step, max_miou,mean = MEAN_ImageNet, std = STD_ImageNet):
     """
     Evaluate the model and save it if performance has improved.
 
@@ -91,7 +94,7 @@ def evaluate_and_save_model(args, model, dataloader_val, writer, epoch, step, ma
     Returns:
     - Updated max_miou after evaluation.
     """
-    precision, miou = val(args, model, dataloader_val, writer, epoch, step)
+    precision, miou = val(args, model, dataloader_val, writer, epoch, step, mean, std)
     if miou > max_miou:
         max_miou = miou
         os.makedirs(args.save_model_path, exist_ok=True)
