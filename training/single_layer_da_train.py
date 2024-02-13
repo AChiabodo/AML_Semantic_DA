@@ -16,7 +16,8 @@ from datasets.cityscapes import CityScapes
 from utils.general import poly_lr_scheduler, save_ckpt, load_ckpt
 from eval import evaluate_and_save_model
 
-
+MEAN = torch.tensor([0.485, 0.456, 0.406])
+STD = torch.tensor([0.229, 0.224, 0.225])
 
 def train_da(args, model, optimizer, source_dataloader_train, target_dataloader_train, target_dataloader_val, comment='', layer=0,starting_epoch=0):
     """
@@ -130,7 +131,8 @@ def train_da(args, model, optimizer, source_dataloader_train, target_dataloader_
             
             # TG.3. Backward pass of the segmentation loss
             scaler.scale(loss).backward()
-            
+            scaler.step(optimizer)
+            scaler.update()
             # TG.4. Train to fool the discriminator using the target training data
             with amp.autocast():
                 
@@ -162,7 +164,8 @@ def train_da(args, model, optimizer, source_dataloader_train, target_dataloader_
 
             # TG.5. Backward pass of the discriminator loss
             scaler.scale(d_loss).backward()
-
+            scaler.step(optimizer)
+            scaler.update()
             #######################
             # Train Discriminator #
             #######################
@@ -194,13 +197,16 @@ def train_da(args, model, optimizer, source_dataloader_train, target_dataloader_
                 dom = discr(softmax_func(s_output, dim=1))
                 sd_loss = discr_loss_func(dom, dsource_labels(dom.shape,dtype=torch.float).cuda()) / 2
             scaler.scale(sd_loss).backward()  # Backward pass of the source domain loss
-            
+            scaler.step(discr_optim)
+            scaler.update()
+
             with amp.autocast():
                 # TD.3.2. Train on the target domain
                 dom = discr(softmax_func(t_output , dim=1))
                 td_loss = discr_loss_func(dom, dtarget_labels(dom.shape,dtype=torch.float).cuda()) / 2
             scaler.scale(td_loss).backward() # Backward pass of the target domain loss
-
+            scaler.step(discr_optim)
+            scaler.update()
             # 4.5.3. Save the randomly selected image in the batch to tensorboard
             if i == image_number and epoch % 2 == 0: #saves the first image in the batch to tensorboard
                 print('epoch {}, iter {}, loss1: {}, loss2: {}, loss3: {}, d_loss_fool: {}, d_loss: {}'.format(epoch, i, loss1, loss2, loss3, d_loss, sd_loss+td_loss))
@@ -210,14 +216,15 @@ def train_da(args, model, optimizer, source_dataloader_train, target_dataloader_
 
                 writer.add_image('epoch%d/iter%d/predicted_labels' % (epoch, i), np.array(colorized_predictions), step, dataformats='HWC')
                 writer.add_image('epoch%d/iter%d/correct_labels' % (epoch, i), np.array(colorized_labels), step, dataformats='HWC')
-                writer.add_image('epoch%d/iter%d/original_data' % (epoch, i), np.array(source_data[0].cpu(),dtype='uint8'), step, dataformats='CHW')
+                original_data = source_data[0].cpu()* STD[:, None, None] + MEAN[:, None, None]
+                writer.add_image('epoch%d/iter%d/original_data' % (epoch, i), np.array(original_data.cpu(),dtype='uint8'), step, dataformats='CHW')
                 writer.add_image('epoch%d/iter%d/predicted_labels_16' % (epoch, i), np.array(colorized_predictions_16), step, dataformats='HWC')
                 writer.add_image('epoch%d/iter%d/predicted_labels_32' % (epoch, i), np.array(colorized_predictions_32), step, dataformats='HWC')
 
             # 4.5.4. Update the generator and the discriminator
-            scaler.step(optimizer)
-            scaler.step(discr_optim)
-            scaler.update()
+            #scaler.step(optimizer)
+            #scaler.step(discr_optim)
+            #scaler.update()
 
             # 4.5.5. Compute the total loss for the batch
             tot_g_loss = loss + d_loss # Generator's total loss

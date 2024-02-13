@@ -40,8 +40,9 @@ IMG_MEAN = torch.reshape(torch.from_numpy(IMG_MEAN), (3,1,1))
 
 """
 Used Training Commands:
-    GTA5  :  main.py --dataset GTA5 --data_transformations 0 --batch_size 10 --learning_rate 0.01 --num_epochs 50 --save_model_path trained_models\test_norm --resume False --comment test_norm --mode train --num_workers 4 --optimizer sgd
-    CityScapes : main.py --dataset Cityscapes --data_transformations 0 --batch_size 10 --learning_rate 0.01 --num_epochs 50 --save_model_path trained_models\test_norm --resume False --comment test_norm --mode train --num_workers 4 --optimizer sgd
+    GTA5  :  main.py --dataset GTA5 --data_transformations 0 --batch_size 10 --learning_rate 0.01 --num_epochs 50 --save_model_path trained_models\test_norm_gta --resume False --comment test_norm --mode train --num_workers 4 --optimizer sgd
+    CityScapes : main.py --dataset Cityscapes --data_transformations 0 --batch_size 10 --learning_rate 0.01 --num_epochs 50 --save_model_path trained_models\test_norm_city --resume False --comment test_norm --mode train --num_workers 4 --optimizer sgd
+    DA    : main.py --dataset CROSS_DOMAIN --data_transformations 0 --batch_size 5 --learning_rate 0.01 --num_epochs 50 --save_model_path trained_models\test_norm_da --resume False --comment test_norm_da --mode train_da --num_workers 4 --optimizer sgd
 """
 
 def parse_args():
