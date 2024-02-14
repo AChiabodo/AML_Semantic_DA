@@ -15,20 +15,28 @@ from PIL import Image
 import numpy as np
 import torch.nn as nn
 import torch.nn.functional as F
+from torch.utils.tensorboard import SummaryWriter
+from model.model_stages import BiSeNet
+from utils.general import reverse_one_hot, compute_global_accuracy, fast_hist, per_class_iu, save_ckpt
+
+
+#################
+# FDA TRANSFORM #
+#################
 
 def FDA_source_to_target( src_img: tensor, trg_img: tensor, beta=0.05 ):
     """
-    Pperforms Fourier Domain Adaptation (FDA) from source to target domain.
+      Performs Fourier Domain Adaptation (FDA) from source to target domain.
 
-    This function takes in source and target images and swaps the low-frequency components
-    of the amplitude spectrum of the source images with those of the target images, while
-    preserving the phase spectrum of the source images.
+      This function takes in source and target images and swaps the low-frequency components
+      of the amplitude spectrum of the source images with those of the target images, while
+      preserving the phase spectrum of the source images.
 
-    Args:
-    - src_img: source image (tensor)
-    - trg_img: target image (tensor)
-    - beta: hyperparameter to control the amount of adaptation (float)
-            the size of the low-frequency window to be swapped
+      Args:
+      - src_img: source image (tensor)
+      - trg_img: target image (tensor)
+      - beta: hyperparameter to control the amount of adaptation (float)
+              the size of the low-frequency window to be swapped
     """
 
     # 0. Clone the source and target images
@@ -101,7 +109,9 @@ def low_freq_mutate( amp_src, amp_trg, beta=0.1 ):
 
     return amp_src
 
-#TODO: CHECK THE FOLLOWING FUNCTION
+#################
+# LOSS FUNCTION #
+#################
 
 class EntropyMinimizationLoss(nn.Module):
     def __init__(self):
@@ -109,14 +119,14 @@ class EntropyMinimizationLoss(nn.Module):
 
     def forward(self, x, ita):
         """
-        Computes entropy minimization loss.
+          Computes entropy minimization loss.
 
-        Args:
-        - x: input tensor (tensor)
-        - ita: hyperparameter to control the amount of entropy minimization (float)
+          Args:
+          - x: input tensor (tensor)
+          - ita: hyperparameter to control the amount of entropy minimization (float)
 
-        Returns:
-            torch.Tensor: Entropy minimization loss.
+          Returns:
+              torch.Tensor: Entropy minimization loss.
         """
 
         P = F.softmax(x, dim=1)        # [B, 19, H, W]
@@ -130,3 +140,97 @@ class EntropyMinimizationLoss(nn.Module):
         ent_loss_value = ent.mean()
 
         return ent_loss_value
+    
+##################
+# MBT ADAPTATION #
+##################
+    
+def test_mbt(args, dataloader_val, comment,
+              path_b1 = 'trained_models\\test_norm_fda_0.01\\best.pth',
+              path_b2 = 'trained_models\\test_norm_fda_0.05\\best.pth',
+              path_b3 = 'trained_models\\test_norm_fda_0.09\\best.pth'
+            ):
+    """
+      Evaluation of the Segmentation Networks Adapted with Multi-band Transfer (multiple betas)
+
+      MBT is a technique that leverages Fourier Domain Adaptation (FDA) to reduce the domain gap 
+      between synthetic and real images, and uses the mean prediction of multiple models trained 
+      with different spectral domain sizes to generate pseudo-labels for the target domain.
+
+      Args:
+      - ...
+      - path_b1: path to the model trained with beta=0.01 (str)
+      - path_b2: path to the model trained with beta=0.05 (str)
+      - path_b3: path to the model trained with beta=0.09 (str)
+    """
+    print('Testing MBT Adaptation...')
+
+    with torch.no_grad(): # No need to track the gradients during validation
+
+      # 1. Initialization
+      backbone = args.backbone
+      n_classes = args.num_classes
+      pretrain_path = args.pretrain_path
+      use_conv_last = args.use_conv_last
+      precision_record = [] # list to store precision per pixel
+      hist = np.zeros((n_classes, n_classes)) # confusion matrix (for mIoU)
+
+      # 2. Load the models trained with different betas
+      checkpoint_b1 = torch.load(path_b1)      
+      model_b1 = BiSeNet(backbone, n_classes, pretrain_path, use_conv_last)
+      model_b1.load_state_dict(checkpoint_b1['model_state_dict'])
+      model_b1.cuda()
+      model_b1.eval()
+
+      checkpoint_b2 = torch.load(path_b2)
+      model_b2 = BiSeNet(backbone, n_classes, pretrain_path, use_conv_last)
+      model_b2.load_state_dict(checkpoint_b2['model_state_dict'])
+      model_b2.cuda()
+      model_b2.eval()
+
+      checkpoint_b3 = torch.load(path_b3)
+      model_b3 = BiSeNet(backbone, n_classes, pretrain_path, use_conv_last)
+      model_b3.load_state_dict(checkpoint_b3['model_state_dict'])
+      model_b3.cuda()
+      model_b3.eval()
+      
+      # 3. Iterate over the validation dataset
+      for i, (data, label) in enumerate(dataloader_val):
+
+          # 3.1. Load data and label to GPU
+          label = label.type(torch.LongTensor)
+          data = data.cuda()
+          label = label.long().cuda()
+
+          # 3.2. Forward pass -> original scale output
+          predict_b1, _, _ = model_b1(data)
+          predict_b2, _, _ = model_b2(data)
+          predict_b3, _, _ = model_b3(data)
+
+          # 3.3. Compute the mean prediction
+          predict = (predict_b1 + predict_b2 + predict_b3) / 3
+
+          # 3.4. Get the predicted label
+          predict = predict.squeeze(0) # Squash batch dimension
+          predict = reverse_one_hot(predict) # Convert to 2D tensor where each pixel is the class index
+          predict = np.array(predict.cpu()) # Convert to numpy array
+
+          # 3.5. Get the ground truth label
+          label = label.squeeze()
+          label = np.array(label.cpu())
+
+          # 3.6. Compute precision per pixel and update the confusion matrix
+          precision = compute_global_accuracy(predict, label)
+          hist += fast_hist(label.flatten(), predict.flatten(), n_classes)
+          precision_record.append(precision)
+
+      # 4. Compute metrics
+      precision = np.mean(precision_record)
+      miou_list = per_class_iu(hist)
+      miou = np.mean(miou_list)
+      print('precision per pixel for test: %.3f' % precision)
+      print('mIoU for test: %.3f' % miou)
+      print('miou_list: ', miou_list)
+
+      return precision, miou
+      

@@ -19,9 +19,12 @@ from datasets.GTA5 import GTA5
 # Utils
 from utils.general import str2bool, load_ckpt
 from utils.aug import ExtCompose, ExtToTensor, ExtRandomHorizontalFlip , ExtScale , ExtRandomCrop, ExtGaussianBlur, ExtColorJitter, ExtRandomCompose, ExtResize, ExtNormalize
+from utils.fda import test_mbt
+# Training
 from training.simple_train import train
 from training.single_layer_da_train import train_da
 from training.fda_train import train_fda
+# Evaluation
 from eval import val
 
 # GLOBAL VARIABLES
@@ -31,6 +34,7 @@ STD_ImageNet = torch.tensor([0.229, 0.224, 0.225])
 # Image mean of the Cityscapes dataset (used for normalization)
 MEAN_CS = torch.tensor([104.00698793, 116.66876762, 122.67891434])
 STD_CS = torch.tensor([1.0, 1.0, 1.0])
+
 """
   LAST TRAINING TRIALS:
 
@@ -42,8 +46,7 @@ STD_CS = torch.tensor([1.0, 1.0, 1.0])
   --mode train --dataset CROSS_DOMAIN --save_model_path trained_models\bea_data_augm_test --comment bea_data_augm_test --data_transformation 2 --batch_size 5 --num_workers 4 --optimizer adam --crop_height 526 --crop_width 957
 
   & C:/Users/aless/Documents/Codice/AML_Semantic_DA/.venv/Scripts/python.exe c:/Users/aless/Documents/Codice/AML_Semantic_DA/main.py --dataset CROSS_DOMAIN --data_transformations 0 --batch_size 6 --learning_rate 0.01 --num_epochs 50 --save_model_path trained_models\norm_da --resume False --comment norm_da --mode train_da --num_workers 4 --optimizer sgd --d_lr 0.001
-  
-  """
+"""
 
 """
 Used Training Commands:
@@ -55,7 +58,7 @@ Used Training Commands:
     FDA   : main.py --dataset CROSS_DOMAIN --data_transformations 0 --batch_size 5 --learning_rate 0.01 --num_epochs 50 --save_model_path trained_models\test_norm_fda --resume False --comment test_norm_fda --mode train_fda --num_workers 4 --optimizer sgd
     
     Eval : main.py --mode test --dataset CROSS_DOMAIN --save_model_path trained_models\test_norm_fda --comment test_norm_fda --num_workers 4
-    """
+"""
 
 def parse_args():
     """Parse input arguments from command line"""
@@ -65,7 +68,11 @@ def parse_args():
                        dest='mode',
                        type=str,
                        default='train_fda',
-                       help='Select between simple training (train), training with Domain Adaptation (train_da), training with Fourier Domain Adaptation (train_fda) or testing an already trained model (test)'
+                       help='Select between simple training (train),'+
+                            'training with Domain Adaptation (train_da),'+
+                            'training with Fourier Domain Adaptation (train_fda),'+
+                            'FDA adapted with Multi-band Transfer (test_mbt)'+
+                            'or testing an already trained model (test)'
     )
     parse.add_argument('--backbone',
                        dest='backbone',
@@ -195,6 +202,21 @@ def parse_args():
                        default=0.001,
                        help='Select learning rate for the Domain Discriminator'
     )
+    parse.add_argument('--fda_b1_path',
+                        type=str,
+                        default='trained_models\\test_norm_fda_0.01\\best.pth',
+                        help='Path to the model trained with beta=0.01'
+    )
+    parse.add_argument('--fda_b2_path',
+                        type=str,
+                        default='trained_models\\test_norm_fda_0.05\\best.pth',
+                        help='Path to the model trained with beta=0.05'
+    )
+    parse.add_argument('--fda_b3_path',
+                        type=str,
+                        default='trained_models\\test_norm_fda_0.09\\best.pth',
+                        help='Path to the model trained with beta=0.09'
+    )
     return parse.parse_args()
 
 def main():
@@ -223,7 +245,7 @@ def main():
             target_transformations = standard_transformations
             
             
-            if args.mode == 'train_fda':
+            if args.mode == 'train_fda' or args.mode == 'test_mbt':
                 """FDA does not need Normalization before the Fourier Transform"""
                 transformations = ExtCompose([ExtResize((512,1024)), ExtToTensor()])
                 target_transformations = transformations
@@ -311,10 +333,10 @@ def main():
                     pin_memory=False,
                     drop_last=True)
     dataloader_val = DataLoader(val_dataset,
-                       batch_size=1,
-                       shuffle=False,
-                       num_workers=args.num_workers,
-                       drop_last=False)
+                    batch_size=1,
+                    shuffle=False,
+                    num_workers=args.num_workers,
+                    drop_last=False)
         
     # 5. Model Setup
     model = BiSeNet(backbone=args.backbone, n_classes=n_classes, pretrain_model=args.pretrain_path, use_conv_last=args.use_conv_last)
@@ -370,6 +392,9 @@ def main():
         case 'train_fda':
             # 10.3. Training with Fourier Domain Adaptation
             train_fda(args, model, optimizer, source_dataloader_train, target_dataloader_train, dataloader_val, comment=args.comment,beta=args.beta)
+        case 'test_mbt':
+            # 10.4. Testing the already trained FDA models using Multi-band Transfer
+            test_mbt(args, dataloader_val, comment=args.comment, path_b1=args.fda_b1_path, path_b2=args.fda_b2_path, path_b3=args.fda_b3_path)
         case 'test':
             # 10.4. Load the trained model and evaluate it on the Validation Set
             try:
