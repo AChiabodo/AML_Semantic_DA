@@ -300,13 +300,15 @@ def main():
 
             if args.mode == 'train_fda' or args.mode == 'test_mbt':
                 transformations = ExtRandomCompose([
-                    ExtScale(random.choice([1.25,1.5,1.75,2]),interpolation=Image.Resampling.BILINEAR),
+                ExtScale(random.choice([1.25,1.5,1.75,2]),interpolation=Image.Resampling.BILINEAR),
                 ExtRandomCrop((args.crop_height, args.crop_width)),
                 ExtRandomHorizontalFlip(),
                 ExtGaussianBlur(p=0.5, radius=1),
                 ExtColorJitter(p=0.5, brightness=0.2, contrast=0.1, saturation=0.1, hue=0.2),
-                ExtToTensor()], 
-                )
+                ExtToTensor()],
+                [ExtResize((512,1024)), ExtToTensor()])
+                target_transformations = transformations
+                eval_transformations = ExtCompose([ExtResize((512,1024)), ExtToTensor(),ExtNormalize(mean=MEAN_CS,std=torch.tensor([1.0,1.0,1.0]))])
 
     
     
