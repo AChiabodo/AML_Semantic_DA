@@ -40,13 +40,16 @@ STD_CS = torch.tensor([1.0, 1.0, 1.0])
 
   & C:/Users/aless/Documents/Codice/AML_Semantic_DA/.venv/Scripts/python.exe c:/Users/aless/Documents/Codice/AML_Semantic_DA/main.py 
   --mode train --dataset CROSS_DOMAIN --save_model_path trained_models\bea_data_augm_test --comment bea_data_augm_test --data_transformation 2 --batch_size 5 --num_workers 4 --optimizer adam --crop_height 526 --crop_width 957
-"""
+
+  & C:/Users/aless/Documents/Codice/AML_Semantic_DA/.venv/Scripts/python.exe c:/Users/aless/Documents/Codice/AML_Semantic_DA/main.py --dataset CROSS_DOMAIN --data_transformations 0 --batch_size 6 --learning_rate 0.01 --num_epochs 50 --save_model_path trained_models\norm_da --resume False --comment norm_da --mode train_da --num_workers 4 --optimizer sgd --d_lr 0.001
+  
+  """
 
 """
 Used Training Commands:
     GTA5  :  main.py --dataset GTA5 --data_transformations 0 --batch_size 10 --learning_rate 0.01 --num_epochs 50 --save_model_path trained_models\test_norm_gta --resume False --comment test_norm --mode train --num_workers 4 --optimizer sgd
     CityScapes : main.py --dataset Cityscapes --data_transformations 0 --batch_size 10 --learning_rate 0.01 --num_epochs 50 --save_model_path trained_models\test_norm_city --resume False --comment test_norm --mode train --num_workers 4 --optimizer sgd
-    DA    : main.py --dataset CROSS_DOMAIN --data_transformations 0 --batch_size 5 --learning_rate 0.01 --num_epochs 50 --save_model_path trained_models\test_norm_da --resume False --comment test_norm_da --mode train_da --num_workers 4 --optimizer sgd
+    DA    : main.py --dataset CROSS_DOMAIN --data_transformations 0 --batch_size 6 --learning_rate 0.01 --num_epochs 50 --save_model_path trained_models\norm_da --resume False --comment norm_da --mode train_da --num_workers 4 --optimizer sgd --d_lr 0.001
     FDA   : main.py --dataset CROSS_DOMAIN --data_transformations 0 --batch_size 5 --learning_rate 0.01 --num_epochs 50 --save_model_path trained_models\test_norm_fda --resume False --comment test_norm_fda --mode train_fda --num_workers 4 --optimizer sgd
     
     Eval : main.py --mode test --dataset CROSS_DOMAIN --save_model_path trained_models\test_norm_fda --comment test_norm_fda --num_workers 4
@@ -185,6 +188,11 @@ def parse_args():
                        default=0.05,
                        help='Select beta for the Fourier Domain Adaptation'
     )
+    parse.add_argument('--d_lr',
+                       type=float,
+                       default=0.001,
+                       help='Select learning rate for the Domain Discriminator'
+    )
     return parse.parse_args()
 
 def main():
@@ -193,9 +201,6 @@ def main():
     args = parse_args()
     n_classes = args.num_classes
     args.dataset = args.dataset.upper()
-    #TODO: to be changed
-    if args.dataset == 'GTA5':
-        args.crop_height, args.crop_width = 526 , 957
     
     # 2. Data Transformations Selection
         
@@ -215,11 +220,19 @@ def main():
             transformations = standard_transformations
             target_transformations = standard_transformations
             
+            
             if args.mode == 'train_fda':
+                """FDA does not need Normalization before the Fourier Transform"""
                 transformations = ExtCompose([ExtResize((512,1024)), ExtToTensor()])
                 target_transformations = transformations
                 eval_transformations = ExtCompose([ExtResize((512,1024)), ExtToTensor(),ExtNormalize(mean=MEAN_CS,std=torch.tensor([1.0,1.0,1.0]))])
-                
+            
+            elif args.dataset == 'CROSS_DOMAIN':
+                """DA needs the same size for the images of the source and target domain and Normalization with the mean and std of the ImageNet dataset"""
+                transformations = ExtCompose([ExtResize((512,1024)), ExtToTensor(), ExtNormalize()])
+                target_transformations = transformations
+                eval_transformations = ExtCompose([ExtResize((512,1024)), ExtToTensor(),ExtNormalize()])
+            
         case 1:
             """
             Feeble Data Augmentation -> 50% probability to be applied
@@ -232,7 +245,9 @@ def main():
                 ExtScale(random.choice([1.25,1.5,1.75,2]),interpolation=Image.Resampling.BILINEAR),
                 ExtRandomCrop((args.crop_height, args.crop_width)),
                 ExtRandomHorizontalFlip(),
-                ExtToTensor()],
+                ExtToTensor(),
+                ExtNormalize()
+                ],
                 standard_transformations)
             target_transformations = standard_transformations
 
@@ -252,7 +267,8 @@ def main():
                 ExtRandomHorizontalFlip(),
                 ExtGaussianBlur(p=0.5, radius=1),
                 ExtColorJitter(p=0.5, brightness=0.2, contrast=0.1, saturation=0.1, hue=0.2),
-                ExtToTensor()],
+                ExtToTensor(),
+                ExtNormalize()],
                 standard_transformations)
             target_transformations = standard_transformations
 
@@ -348,7 +364,7 @@ def main():
             train(args, model, optimizer, source_dataloader_train, dataloader_val, comment=args.comment)
         case 'train_da':
             # 10.2. Training with Domain Adaptation
-            train_da(args, model, optimizer, source_dataloader_train, target_dataloader_train, dataloader_val, comment=args.comment)
+            train_da(args, model, optimizer, source_dataloader_train, target_dataloader_train, dataloader_val, comment=args.comment,d_lr=args.d_lr)
         case 'train_fda':
             # 10.3. Training with Fourier Domain Adaptation
             train_fda(args, model, optimizer, source_dataloader_train, target_dataloader_train, dataloader_val, comment=args.comment,beta=args.beta)
