@@ -200,6 +200,21 @@ def parse_args():
                        default=0.001,
                        help='Select learning rate for the Domain Discriminator'
     )
+    parse.add_argument('--fda_b1_path',
+                        type=str,
+                        default='trained_models\\test_norm_fda_0.01\\best.pth',
+                        help='Path to the model trained with beta=0.01'
+    )
+    parse.add_argument('--fda_b2_path',
+                        type=str,
+                        default='trained_models\\test_norm_fda_0.05\\best.pth',
+                        help='Path to the model trained with beta=0.05'
+    )
+    parse.add_argument('--fda_b3_path',
+                        type=str,
+                        default='trained_models\\test_norm_fda_0.09\\best.pth',
+                        help='Path to the model trained with beta=0.09'
+    )
     return parse.parse_args()
 
 def main():
@@ -228,7 +243,7 @@ def main():
             target_transformations = standard_transformations
             
             
-            if args.mode == 'train_fda':
+            if args.mode == 'train_fda' or args.mode == 'test_mbt':
                 """FDA does not need Normalization before the Fourier Transform"""
                 transformations = ExtCompose([ExtResize((512,1024)), ExtToTensor()])
                 target_transformations = transformations
@@ -377,7 +392,7 @@ def main():
             train_fda(args, model, optimizer, source_dataloader_train, target_dataloader_train, dataloader_val, comment=args.comment,beta=args.beta)
         case 'test_mbt':
             # 10.4. Testing the already trained FDA models using Multi-band Transfer
-            test_mbt(args, dataloader_val, comment=args.comment)
+            test_mbt(args, dataloader_val, comment=args.comment, path_b1=args.fda_b1_path, path_b2=args.fda_b2_path, path_b3=args.fda_b3_path)
         case 'test':
             # 10.4. Load the trained model and evaluate it on the Validation Set
             try:

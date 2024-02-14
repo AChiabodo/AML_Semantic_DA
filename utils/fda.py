@@ -146,9 +146,9 @@ class EntropyMinimizationLoss(nn.Module):
 ##################
     
 def test_mbt(args, dataloader_val, comment,
-              path_b1 = 'trained_models\test_norm_fda_0.01\best.pth',
-              path_b2 = 'trained_models\test_norm_fda_0.05\best.pth',
-              path_b3 = 'trained_models\test_norm_fda_0.09\best.pth'
+              path_b1 = 'trained_models\\test_norm_fda_0.01\\best.pth',
+              path_b2 = 'trained_models\\test_norm_fda_0.05\\best.pth',
+              path_b3 = 'trained_models\\test_norm_fda_0.09\\best.pth'
             ):
     """
       Evaluation of the Segmentation Networks Adapted with Multi-band Transfer (multiple betas)
@@ -170,21 +170,29 @@ def test_mbt(args, dataloader_val, comment,
       # 1. Initialization
       backbone = args.backbone
       n_classes = args.num_classes
+      pretrain_path = args.pretrain_path
+      use_conv_last = args.use_conv_last
       precision_record = [] # list to store precision per pixel
       hist = np.zeros((n_classes, n_classes)) # confusion matrix (for mIoU)
 
       # 2. Load the models trained with different betas
-      model_b1 = BiSeNet(backbone, n_classes, pretrain_model = path_b1)
-      model_b1.eval()
+      checkpoint_b1 = torch.load(path_b1)      
+      model_b1 = BiSeNet(backbone, n_classes, pretrain_path, use_conv_last)
+      model_b1.load_state_dict(checkpoint_b1['model_state_dict'])
       model_b1.cuda()
+      model_b1.eval()
 
-      model_b2 = BiSeNet(backbone, n_classes, pretrain_model = path_b2)
-      model_b2.eval()
+      checkpoint_b2 = torch.load(path_b2)
+      model_b2 = BiSeNet(backbone, n_classes, pretrain_path, use_conv_last)
+      model_b2.load_state_dict(checkpoint_b2['model_state_dict'])
       model_b2.cuda()
+      model_b2.eval()
 
-      model_b3 = BiSeNet(backbone, n_classes, pretrain_model = path_b3)
-      model_b3.eval()
+      checkpoint_b3 = torch.load(path_b3)
+      model_b3 = BiSeNet(backbone, n_classes, pretrain_path, use_conv_last)
+      model_b3.load_state_dict(checkpoint_b3['model_state_dict'])
       model_b3.cuda()
+      model_b3.eval()
       
       # 3. Iterate over the validation dataset
       for i, (data, label) in enumerate(dataloader_val):
@@ -199,13 +207,13 @@ def test_mbt(args, dataloader_val, comment,
           predict_b2, _, _ = model_b2(data)
           predict_b3, _, _ = model_b3(data)
 
-          # 3.3. Get the predicted label
-          predict_b1 = np.array(reverse_one_hot(predict_b1.squeeze(0)).cpu())
-          predict_b2 = np.array(reverse_one_hot(predict_b2.squeeze(0)).cpu())
-          predict_b3 = np.array(reverse_one_hot(predict_b3.squeeze(0)).cpu())
-
-          # 3.4. Compute the mean prediction
+          # 3.3. Compute the mean prediction
           predict = (predict_b1 + predict_b2 + predict_b3) / 3
+
+          # 3.4. Get the predicted label
+          predict = predict.squeeze(0) # Squash batch dimension
+          predict = reverse_one_hot(predict) # Convert to 2D tensor where each pixel is the class index
+          predict = np.array(predict.cpu()) # Convert to numpy array
 
           # 3.5. Get the ground truth label
           label = label.squeeze()
