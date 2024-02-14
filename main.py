@@ -57,6 +57,8 @@ Used Training Commands:
     DA    : main.py --dataset CROSS_DOMAIN --data_transformations 0 --batch_size 6 --learning_rate 0.01 --num_epochs 50 --save_model_path trained_models\norm_da --resume False --comment norm_da --mode train_da --num_workers 4 --optimizer sgd --d_lr 0.001
     FDA   : main.py --dataset CROSS_DOMAIN --data_transformations 0 --batch_size 5 --learning_rate 0.01 --num_epochs 50 --save_model_path trained_models\test_norm_fda --resume False --comment test_norm_fda --mode train_fda --num_workers 4 --optimizer sgd
     
+
+    MBT  : main.py --mode test_mbt --dataset CROSS_DOMAIN
     Eval : main.py --mode test --dataset CROSS_DOMAIN --save_model_path trained_models\test_norm_fda --comment test_norm_fda --num_workers 4
 """
 
@@ -67,7 +69,7 @@ def parse_args():
     parse.add_argument('--mode',
                        dest='mode',
                        type=str,
-                       default='train_fda',
+                       default='train',
                        help='Select between simple training (train),'+
                             'training with Domain Adaptation (train_da),'+
                             'training with Fourier Domain Adaptation (train_fda),'+
@@ -295,6 +297,16 @@ def main():
                 ExtNormalize(mean=MEAN_ImageNet,std=STD_ImageNet)],
                 [ExtResize((512,1024)), ExtToTensor(),ExtNormalize(mean=MEAN_ImageNet,std=STD_ImageNet)])
             target_transformations = standard_transformations
+
+            if args.mode == 'train_fda' or args.mode == 'test_mbt':
+                transformations = ExtRandomCompose([
+                    ExtScale(random.choice([1.25,1.5,1.75,2]),interpolation=Image.Resampling.BILINEAR),
+                ExtRandomCrop((args.crop_height, args.crop_width)),
+                ExtRandomHorizontalFlip(),
+                ExtGaussianBlur(p=0.5, radius=1),
+                ExtColorJitter(p=0.5, brightness=0.2, contrast=0.1, saturation=0.1, hue=0.2),
+                ExtToTensor()], 
+                )
 
     
     
