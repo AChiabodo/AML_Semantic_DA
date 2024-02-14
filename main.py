@@ -49,6 +49,8 @@ STD_CS = torch.tensor([1.0, 1.0, 1.0])
 Used Training Commands:
     GTA5  :  main.py --dataset GTA5 --data_transformations 0 --batch_size 10 --learning_rate 0.01 --num_epochs 50 --save_model_path trained_models\test_norm_gta --resume False --comment test_norm --mode train --num_workers 4 --optimizer sgd
     CityScapes : main.py --dataset Cityscapes --data_transformations 0 --batch_size 10 --learning_rate 0.01 --num_epochs 50 --save_model_path trained_models\test_norm_city --resume False --comment test_norm --mode train --num_workers 4 --optimizer sgd
+    Augm-1: main.py --dataset CROSS_DOMAIN --data_transformations 1 --batch_size 10 --learning_rate 0.01 --num_epochs 50 --save_model_path trained_models\test_augm1_gta --resume False --comment test_augm1 --mode train --num_workers 4 --optimizer sgd 
+    Augm-2: main.py --dataset CROSS_DOMAIN --data_transformations 2 --batch_size 10 --learning_rate 0.01 --num_epochs 50 --save_model_path trained_models\test_augm2_gta --resume False --comment test_augm2 --mode train --num_workers 4 --optimizer sgd
     DA    : main.py --dataset CROSS_DOMAIN --data_transformations 0 --batch_size 6 --learning_rate 0.01 --num_epochs 50 --save_model_path trained_models\norm_da --resume False --comment norm_da --mode train_da --num_workers 4 --optimizer sgd --d_lr 0.001
     FDA   : main.py --dataset CROSS_DOMAIN --data_transformations 0 --batch_size 5 --learning_rate 0.01 --num_epochs 50 --save_model_path trained_models\test_norm_fda --resume False --comment test_norm_fda --mode train_fda --num_workers 4 --optimizer sgd
     
@@ -242,13 +244,13 @@ def main():
             - Images are randomly flipped horizontally
             """
             transformations = ExtRandomCompose([
-                ExtScale(random.choice([1.25,1.5,1.75,2]),interpolation=Image.Resampling.BILINEAR),
-                ExtRandomCrop((args.crop_height, args.crop_width)),
+                ExtScale(random.choice([1,1.25,1.5,1.75,2]),interpolation=Image.Resampling.BILINEAR),
+                ExtRandomCrop((512, 1024)),
                 ExtRandomHorizontalFlip(),
                 ExtToTensor(),
-                ExtNormalize()
+                ExtNormalize(mean=MEAN_ImageNet,std=STD_ImageNet)
                 ],
-                standard_transformations)
+                [ExtResize((512,1024)), ExtToTensor(),ExtNormalize(mean=MEAN_ImageNet,std=STD_ImageNet)])
             target_transformations = standard_transformations
 
         case 2:
@@ -268,8 +270,8 @@ def main():
                 ExtGaussianBlur(p=0.5, radius=1),
                 ExtColorJitter(p=0.5, brightness=0.2, contrast=0.1, saturation=0.1, hue=0.2),
                 ExtToTensor(),
-                ExtNormalize()],
-                standard_transformations)
+                ExtNormalize(mean=MEAN_ImageNet,std=STD_ImageNet)],
+                [ExtResize((512,1024)), ExtToTensor(),ExtNormalize(mean=MEAN_ImageNet,std=STD_ImageNet)])
             target_transformations = standard_transformations
 
     
