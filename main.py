@@ -9,7 +9,7 @@ import argparse
 import random
 import os
 from tensorboardX import SummaryWriter
-
+import numpy as np
 # PERSONAL
 # Models
 from model.model_stages import BiSeNet
@@ -18,13 +18,19 @@ from datasets.cityscapes import CityScapes
 from datasets.GTA5 import GTA5
 # Utils
 from utils.general import str2bool, load_ckpt
-from utils.aug import ExtCompose, ExtToTensor, ExtRandomHorizontalFlip , ExtScale , ExtRandomCrop, ExtGaussianBlur, ExtColorJitter, ExtRandomCompose, ExtResize
+from utils.aug import ExtCompose, ExtToTensor, ExtRandomHorizontalFlip , ExtScale , ExtRandomCrop, ExtGaussianBlur, ExtColorJitter, ExtRandomCompose, ExtResize, ExtNormalize
 from training.simple_train import train
 from training.single_layer_da_train import train_da
 from training.fda_train import train_fda
 from eval import val
 
-
+# GLOBAL VARIABLES
+# Image mean of the Cityscapes dataset (used for normalization)
+MEAN_ImageNet = torch.tensor([0.485, 0.456, 0.406])
+STD_ImageNet = torch.tensor([0.229, 0.224, 0.225])
+# Image mean of the Cityscapes dataset (used for normalization)
+MEAN_CS = torch.tensor([104.00698793, 116.66876762, 122.67891434])
+STD_CS = torch.tensor([1.0, 1.0, 1.0])
 """
   LAST TRAINING TRIALS:
 
@@ -32,9 +38,22 @@ from eval import val
   
   --mode train_da --dataset CROSS_DOMAIN --save_model_path trained_models\adv_single_layer_lam0.001_softmax_resumed --comment adv_single_layer_lam0.005_softmax --data_transformation 0 --batch_size 4 --learning_rate 0.002 --num_workers 4 --optimizer sgd --resume True --resume_model_path trained_models\avd_single_layer_lam0.005_softmax\best.pth
 
-  & C:/Users/aless/Documents/Codice/AML_Semantic_DA/.venv/Scripts/python.exe c:/Users/aless/Documents/Codice/AML_Semantic_DA/train.py 
+  & C:/Users/aless/Documents/Codice/AML_Semantic_DA/.venv/Scripts/python.exe c:/Users/aless/Documents/Codice/AML_Semantic_DA/main.py 
   --mode train --dataset CROSS_DOMAIN --save_model_path trained_models\bea_data_augm_test --comment bea_data_augm_test --data_transformation 2 --batch_size 5 --num_workers 4 --optimizer adam --crop_height 526 --crop_width 957
+
+  & C:/Users/aless/Documents/Codice/AML_Semantic_DA/.venv/Scripts/python.exe c:/Users/aless/Documents/Codice/AML_Semantic_DA/main.py --dataset CROSS_DOMAIN --data_transformations 0 --batch_size 6 --learning_rate 0.01 --num_epochs 50 --save_model_path trained_models\norm_da --resume False --comment norm_da --mode train_da --num_workers 4 --optimizer sgd --d_lr 0.001
+  
+  """
+
 """
+Used Training Commands:
+    GTA5  :  main.py --dataset GTA5 --data_transformations 0 --batch_size 10 --learning_rate 0.01 --num_epochs 50 --save_model_path trained_models\test_norm_gta --resume False --comment test_norm --mode train --num_workers 4 --optimizer sgd
+    CityScapes : main.py --dataset Cityscapes --data_transformations 0 --batch_size 10 --learning_rate 0.01 --num_epochs 50 --save_model_path trained_models\test_norm_city --resume False --comment test_norm --mode train --num_workers 4 --optimizer sgd
+    DA    : main.py --dataset CROSS_DOMAIN --data_transformations 0 --batch_size 6 --learning_rate 0.01 --num_epochs 50 --save_model_path trained_models\norm_da --resume False --comment norm_da --mode train_da --num_workers 4 --optimizer sgd --d_lr 0.001
+    FDA   : main.py --dataset CROSS_DOMAIN --data_transformations 0 --batch_size 5 --learning_rate 0.01 --num_epochs 50 --save_model_path trained_models\test_norm_fda --resume False --comment test_norm_fda --mode train_fda --num_workers 4 --optimizer sgd
+    
+    Eval : main.py --mode test --dataset CROSS_DOMAIN --save_model_path trained_models\test_norm_fda --comment test_norm_fda --num_workers 4
+    """
 
 def parse_args():
     """Parse input arguments from command line"""
@@ -81,7 +100,7 @@ def parse_args():
     )
     parse.add_argument('--validation_step',
                        type=int,
-                       default=2,
+                       default=5,
                        help='How often (epochs) to evaluate the model on the validation set to check its performance'
     )
     parse.add_argument('--crop_height',
@@ -164,6 +183,16 @@ def parse_args():
                        default=0,
                        help='Select transformations to be applied on the dataset images (0: no transformations, 1 : data augmentation)'
     )
+    parse.add_argument('--beta',
+                       type=float,
+                       default=0.05,
+                       help='Select beta for the Fourier Domain Adaptation'
+    )
+    parse.add_argument('--d_lr',
+                       type=float,
+                       default=0.001,
+                       help='Select learning rate for the Domain Discriminator'
+    )
     return parse.parse_args()
 
 def main():
@@ -172,14 +201,13 @@ def main():
     args = parse_args()
     n_classes = args.num_classes
     args.dataset = args.dataset.upper()
-    #TODO: to be changed
-    if args.dataset == 'GTA5':
-        args.crop_height, args.crop_width = 526 , 957
     
     # 2. Data Transformations Selection
         
     """By default, the images are resized to 0.5 of their original size to reduce computational cost"""
-    standard_transformations = ExtCompose([ExtScale(0.5,interpolation=Image.Resampling.BILINEAR), ExtToTensor()])
+    standard_transformations = ExtCompose([ExtScale(0.5,interpolation=Image.Resampling.BILINEAR), ExtToTensor(),ExtNormalize(mean=MEAN_ImageNet,std=STD_ImageNet)])
+    """The Validation Set is also resized to 0.5 of its original size"""
+    eval_transformations = standard_transformations
 
     match args.data_transformations:
         case 0:
@@ -191,8 +219,20 @@ def main():
             """
             transformations = standard_transformations
             target_transformations = standard_transformations
+            
+            
             if args.mode == 'train_fda':
+                """FDA does not need Normalization before the Fourier Transform"""
                 transformations = ExtCompose([ExtResize((512,1024)), ExtToTensor()])
+                target_transformations = transformations
+                eval_transformations = ExtCompose([ExtResize((512,1024)), ExtToTensor(),ExtNormalize(mean=MEAN_CS,std=torch.tensor([1.0,1.0,1.0]))])
+            
+            elif args.dataset == 'CROSS_DOMAIN':
+                """DA needs the same size for the images of the source and target domain and Normalization with the mean and std of the ImageNet dataset"""
+                transformations = ExtCompose([ExtResize((512,1024)), ExtToTensor(), ExtNormalize()])
+                target_transformations = transformations
+                eval_transformations = ExtCompose([ExtResize((512,1024)), ExtToTensor(),ExtNormalize()])
+            
         case 1:
             """
             Feeble Data Augmentation -> 50% probability to be applied
@@ -205,9 +245,12 @@ def main():
                 ExtScale(random.choice([1.25,1.5,1.75,2]),interpolation=Image.Resampling.BILINEAR),
                 ExtRandomCrop((args.crop_height, args.crop_width)),
                 ExtRandomHorizontalFlip(),
-                ExtToTensor()],
+                ExtToTensor(),
+                ExtNormalize()
+                ],
                 standard_transformations)
             target_transformations = standard_transformations
+
         case 2:
             """
             Precise Data Augmentation -> 50% probability to be applied
@@ -224,12 +267,12 @@ def main():
                 ExtRandomHorizontalFlip(),
                 ExtGaussianBlur(p=0.5, radius=1),
                 ExtColorJitter(p=0.5, brightness=0.2, contrast=0.1, saturation=0.1, hue=0.2),
-                ExtToTensor()],
+                ExtToTensor(),
+                ExtNormalize()],
                 standard_transformations)
             target_transformations = standard_transformations
 
-    """The Validation Set is also resized to 0.5 of its original size"""
-    eval_transformations = standard_transformations
+    
     
     # 3. Datasets Selection
     if args.dataset == 'CITYSCAPES':
@@ -321,10 +364,10 @@ def main():
             train(args, model, optimizer, source_dataloader_train, dataloader_val, comment=args.comment)
         case 'train_da':
             # 10.2. Training with Domain Adaptation
-            train_da(args, model, optimizer, source_dataloader_train, target_dataloader_train, dataloader_val, comment=args.comment)
+            train_da(args, model, optimizer, source_dataloader_train, target_dataloader_train, dataloader_val, comment=args.comment,d_lr=args.d_lr)
         case 'train_fda':
             # 10.3. Training with Fourier Domain Adaptation
-            train_fda(args, model, optimizer, source_dataloader_train, target_dataloader_train, dataloader_val, comment=args.comment)
+            train_fda(args, model, optimizer, source_dataloader_train, target_dataloader_train, dataloader_val, comment=args.comment,beta=args.beta)
         case 'test':
             # 10.4. Load the trained model and evaluate it on the Validation Set
             try:

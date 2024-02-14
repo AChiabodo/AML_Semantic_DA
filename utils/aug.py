@@ -33,7 +33,7 @@ import numpy as np
 import random
 import numbers
 from typing import Optional, List
-
+from torchvision.transforms import Normalize
 
 ##############
 # BASE CLASS #
@@ -148,6 +148,22 @@ class ExtScale(ExtTransforms):
         assert img.size == lbl.size
         target_size = ( int(img.size[1]*self.scale), int(img.size[0]*self.scale) ) # (H, W)
         return F.resize(img, target_size, self.interpolation), F.resize(lbl, target_size, Image.NEAREST)
+
+class ExtNormalize(ExtTransforms):
+    """
+    Subtract the mean image from the input PIL Image and its label.
+
+    Args:
+    - mean: Mean image to be subtracted. Default is the ImageNet mean.
+    """
+
+    def __init__(self, mean=[0.485, 0.456, 0.406],std=[0.229, 0.224, 0.225]):
+        self.mean = mean
+        self.std = std
+
+    def __call__(self, img : Image, lbl : Image) -> (Image, Image):
+        
+        return Normalize(mean=self.mean, std=self.std)(img), lbl
 
 # Crop
 class ExtRandomCrop(ExtTransforms):

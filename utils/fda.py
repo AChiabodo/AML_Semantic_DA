@@ -61,7 +61,7 @@ def FDA_source_to_target( src_img: tensor, trg_img: tensor, beta=0.05 ):
     src_in_trg = torch.real(src_in_trg)
     src_in_trg = torch.clamp(src_in_trg, 0, 255)
     
-    return src_in_trg
+    return src_in_trg.cuda()
 
 def extract_ampl_phase(fft_im):
     """

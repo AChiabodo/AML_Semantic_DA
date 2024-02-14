@@ -16,9 +16,12 @@ from datasets.cityscapes import CityScapes
 from utils.general import poly_lr_scheduler, save_ckpt, load_ckpt
 from eval import evaluate_and_save_model
 
+MEAN = torch.tensor([0.485, 0.456, 0.406])
+STD = torch.tensor([0.229, 0.224, 0.225])
+USE_SOFTMAX = False
+USE_LINEAR_LAMBDA = False
 
-
-def train_da(args, model, optimizer, source_dataloader_train, target_dataloader_train, target_dataloader_val, comment='', layer=0,starting_epoch=0):
+def train_da(args, model, optimizer, source_dataloader_train, target_dataloader_train, target_dataloader_val, comment='', layer=0,starting_epoch=0,d_lr=0.001):
     """
     Train the model using `Domain Adaptation (DA)` for semantic segmentation tasks. 
     
@@ -47,10 +50,11 @@ def train_da(args, model, optimizer, source_dataloader_train, target_dataloader_
     # 1.1 Parameters Initialization
     writer = SummaryWriter(comment=comment) # Tensorboard writer
     scaler = amp.GradScaler() # Automatic Mixed Precision
-    d_lr = 2e-4 # Discriminator learning rate
+    d_lr = d_lr # Discriminator learning rate
     max_lam = 0.0015 # Maximum value for the lambda parameter (used to balance the two losses)
     max_miou = 0
     step = 0
+    
 
     # 1.2 Discriminator Initialization
     discr = torch.nn.DataParallel(BiSeNetDiscriminator(num_classes=args.num_classes)).cuda() 
@@ -79,17 +83,15 @@ def train_da(args, model, optimizer, source_dataloader_train, target_dataloader_
         discr_lr = poly_lr_scheduler(discr_optim, d_lr, iter=epoch, max_iter=args.num_epochs)
 
         # 4.2. Adjust Lambda
-        lam = (max_lam)
+        lam = (max_lam * epoch) / args.num_epochs if USE_LINEAR_LAMBDA else max_lam
 
-        # 4.3. Set up the model to train mode
-        model.train()
         tq = tqdm(total=min(len(source_dataloader_train),len(target_dataloader_train)) * args.batch_size)
         tq.set_description('epoch %d,G-lr %f, D-lr %f, lam %f' % (epoch, lr, discr_lr, lam))
         # Losses for each batch
         loss_record = []
         loss_discr_record = []
         # Utility functions
-        softmax_func = torch.nn.functional.softmax
+        softmax_func = torch.nn.functional.softmax if USE_SOFTMAX else lambda x, dim: x
         dsource_labels, dtarget_labels = torch.zeros, torch.ones
 
         # 4.4. Select a random image to save to tensorboard
@@ -105,7 +107,11 @@ def train_da(args, model, optimizer, source_dataloader_train, target_dataloader_
             source_label = source_label.long().cuda()
             target_data = target_data.cuda()
 
-            # 4.5.2. Zero the gradients
+            # 4.5.2 Set up models to train mode
+            model.train()
+            discr.train()
+
+            # 4.5.3. Zero the gradients
             optimizer.zero_grad()
             discr_optim.zero_grad()
             
@@ -130,13 +136,17 @@ def train_da(args, model, optimizer, source_dataloader_train, target_dataloader_
             
             # TG.3. Backward pass of the segmentation loss
             scaler.scale(loss).backward()
-            
+            scaler.step(optimizer)
+            scaler.update()
             # TG.4. Train to fool the discriminator using the target training data
             with amp.autocast():
                 
                 # TG.4.1. Forward pass -> multi-scale outputs
                 t_output, t_out16, t_out32 = model(target_data)
 
+            optimizer.zero_grad()
+            
+            with amp.autocast():
                 # TG.4.2. Select the right output for the discriminator
                 # (depending on the layer selected for domain adaptation)
                 # and get the discriminator's prediction
@@ -153,16 +163,20 @@ def train_da(args, model, optimizer, source_dataloader_train, target_dataloader_
                 # a perfect discriminator would predict all 1s for images' outputs coming from the target domain;
                 # however, we're training G to fool D into believing that they're actually coming from the source domain
                 # (i.e. we would like D to predict all 0s)
-                td_loss_fooled = discr_loss_func(dom, dsource_labels(dom.shape,dtype=torch.float).cuda())
+                
+
+                td_loss_fooled = discr_loss_func(dom, dsource_labels(dom.size(0), 1, dom.size(2),dom.size(3)).cuda())
 
                 # TG.4.4. Scale the discriminator loss by lambda:
                 # to limit the impact of the discriminator on the generator
                 # whose primary goal is still to minimize the segmentation loss
-                d_loss = td_loss_fooled * lam
+            d_loss = td_loss_fooled * lam
 
             # TG.5. Backward pass of the discriminator loss
             scaler.scale(d_loss).backward()
-
+            scaler.step(optimizer)
+            scaler.update()
+            #optimizer.zero_grad()
             #######################
             # Train Discriminator #
             #######################
@@ -192,14 +206,22 @@ def train_da(args, model, optimizer, source_dataloader_train, target_dataloader_
             with amp.autocast():
                 # TD.3.1. Train on the source domain
                 dom = discr(softmax_func(s_output, dim=1))
-                sd_loss = discr_loss_func(dom, dsource_labels(dom.shape,dtype=torch.float).cuda()) / 2
+                sd_loss = discr_loss_func(dom, dsource_labels(dom.size(0), 1, dom.size(2),dom.size(3)).cuda())
+
             scaler.scale(sd_loss).backward()  # Backward pass of the source domain loss
-            
+            scaler.step(discr_optim)
+            scaler.update()
+            discr_optim.zero_grad()
+
             with amp.autocast():
                 # TD.3.2. Train on the target domain
                 dom = discr(softmax_func(t_output , dim=1))
-                td_loss = discr_loss_func(dom, dtarget_labels(dom.shape,dtype=torch.float).cuda()) / 2
+                td_loss = discr_loss_func(dom, dtarget_labels(dom.size(0), 1, dom.size(2),dom.size(3)).cuda())
+
             scaler.scale(td_loss).backward() # Backward pass of the target domain loss
+            scaler.step(discr_optim)
+            scaler.update()
+
 
             # 4.5.3. Save the randomly selected image in the batch to tensorboard
             if i == image_number and epoch % 2 == 0: #saves the first image in the batch to tensorboard
@@ -210,14 +232,17 @@ def train_da(args, model, optimizer, source_dataloader_train, target_dataloader_
 
                 writer.add_image('epoch%d/iter%d/predicted_labels' % (epoch, i), np.array(colorized_predictions), step, dataformats='HWC')
                 writer.add_image('epoch%d/iter%d/correct_labels' % (epoch, i), np.array(colorized_labels), step, dataformats='HWC')
-                writer.add_image('epoch%d/iter%d/original_data' % (epoch, i), np.array(source_data[0].cpu(),dtype='uint8'), step, dataformats='CHW')
+                original_data = source_data[0].cpu()* STD[:, None, None] + MEAN[:, None, None]
+                writer.add_image('epoch%d/iter%d/original_data' % (epoch, i), np.array(original_data.cpu(),dtype='uint8'), step, dataformats='CHW')
                 writer.add_image('epoch%d/iter%d/predicted_labels_16' % (epoch, i), np.array(colorized_predictions_16), step, dataformats='HWC')
                 writer.add_image('epoch%d/iter%d/predicted_labels_32' % (epoch, i), np.array(colorized_predictions_32), step, dataformats='HWC')
+                print(f"Source image mean: {source_data[0].mean()}")
+                print(f"Target image mean: {target_data[0].mean()}")
 
             # 4.5.4. Update the generator and the discriminator
-            scaler.step(optimizer)
-            scaler.step(discr_optim)
-            scaler.update()
+            #scaler.step(optimizer)
+            #scaler.step(discr_optim)
+            #scaler.update()
 
             # 4.5.5. Compute the total loss for the batch
             tot_g_loss = loss + d_loss # Generator's total loss
