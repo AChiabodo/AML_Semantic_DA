@@ -324,9 +324,9 @@ def main():
                 target_transformations = transformations
                 eval_transformations = ExtCompose([ExtResize((512,1024)), ExtToTensor(),ExtNormalize(mean=MEAN_CS,std=torch.tensor([1.0,1.0,1.0]))])
 
-    
-    
+
     # 3. Datasets Selection
+    
     if args.dataset == 'CITYSCAPES':
         print('training on CityScapes')
         train_dataset = CityScapes(split='train',transforms=transformations)
@@ -346,7 +346,9 @@ def main():
         print('not supported dataset \n')
         return None
     
+
     # 4. Dataloaders Setup
+
     source_dataloader_train = DataLoader(train_dataset,
                     batch_size=args.batch_size,
                     shuffle=False,
@@ -355,17 +357,18 @@ def main():
                     drop_last=True)
     if args.dataset == 'CROSS_DOMAIN':
         target_dataloader_train = DataLoader(target_dataset_train,
-                    batch_size=args.batch_size,
-                    shuffle=False,
-                    num_workers=args.num_workers,
-                    pin_memory=False,
-                    drop_last=True)
+                        batch_size=args.batch_size,
+                        shuffle=False,
+                        num_workers=args.num_workers,
+                        pin_memory=False,
+                        drop_last=True)
     dataloader_val = DataLoader(val_dataset,
                     batch_size=1,
                     shuffle=False,
                     num_workers=args.num_workers,
                     drop_last=False)
-        
+    
+    
     # 5. Model Setup
     model = BiSeNet(backbone=args.backbone, n_classes=n_classes, pretrain_model=args.pretrain_path, use_conv_last=args.use_conv_last)
 
