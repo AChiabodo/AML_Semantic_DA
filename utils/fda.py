@@ -15,10 +15,11 @@ from PIL import Image
 import numpy as np
 import torch.nn as nn
 import torch.nn.functional as F
+import os
 from torch.utils.tensorboard import SummaryWriter
 from model.model_stages import BiSeNet
 from utils.general import reverse_one_hot, compute_global_accuracy, fast_hist, per_class_iu, save_ckpt
-
+from datasets.cityscapes import CityScapes
 
 #################
 # FDA TRANSFORM #
@@ -148,7 +149,9 @@ class EntropyMinimizationLoss(nn.Module):
 def test_mbt(args, dataloader_val, comment,
               path_b1 = 'trained_models\\test_norm_fda_0.01\\best.pth',
               path_b2 = 'trained_models\\test_norm_fda_0.05\\best.pth',
-              path_b3 = 'trained_models\\test_norm_fda_0.09\\best.pth'
+              path_b3 = 'trained_models\\test_norm_fda_0.09\\best.pth',
+              save_pseudo_labels = True,
+              save_path = 'dataset\\Cityscapes\\pseudo_labels'
             ):
     """
       Evaluation of the Segmentation Networks Adapted with Multi-band Transfer (multiple betas)
@@ -157,23 +160,46 @@ def test_mbt(args, dataloader_val, comment,
       between synthetic and real images, and uses the mean prediction of multiple models trained 
       with different spectral domain sizes to generate pseudo-labels for the target domain.
 
+      The pseudo-labels will be used to train the model in a self-learning fashion.
+      => To avoid overfitting, we want to filter out the low-confidence predictions from the
+      pseudo labels, by only accepting those that, for each semantic class, are either:
+      - in the top 66%
+      - or above 0.9
+      Any labels with a probability below the threshold are set to 255 (ignored class). 
+
       Args:
       - ...
       - path_b1: path to the model trained with beta=0.01 (str)
       - path_b2: path to the model trained with beta=0.05 (str)
       - path_b3: path to the model trained with beta=0.09 (str)
+      - save_pseudo_labels: flag to save the pseudo-labels (bool)
+      - save_path: path to save the pseudo-labels (str)
     """
-    print('Testing MBT Adaptation...')
 
     with torch.no_grad(): # No need to track the gradients during validation
 
-      # 1. Initialization
+      # 0. Initialization
       backbone = args.backbone
       n_classes = args.num_classes
       pretrain_path = args.pretrain_path
       use_conv_last = args.use_conv_last
+
       precision_record = [] # list to store precision per pixel
       hist = np.zeros((n_classes, n_classes)) # confusion matrix (for mIoU)
+
+      # 1. Pseudo-labels Initialization
+      if save_pseudo_labels:
+          
+          # 1.1. Create the folder to save the pseudo-labels
+          if not os.path.exists(save_path):
+              os.makedirs(save_path)
+
+          # 1.2. Initialize the arrays to store the pseudo-labels
+          predicted_labels = np.zeros((len(dataloader_val), 512, 1024), dtype=np.uint8)
+          predicted_probs = np.zeros((len(dataloader_val), 512, 1024), dtype=np.float32)
+          image_names = []
+
+          print('Pseudo-labels will be saved in: ', save_path)
 
       # 2. Load the models trained with different betas
       checkpoint_b1 = torch.load(path_b1)      
@@ -193,7 +219,9 @@ def test_mbt(args, dataloader_val, comment,
       model_b3.load_state_dict(checkpoint_b3['model_state_dict'])
       model_b3.cuda()
       model_b3.eval()
-      
+
+      print('Testing MBT Adaptation...')
+
       # 3. Iterate over the validation dataset
       for i, (data, label) in enumerate(dataloader_val):
 
@@ -209,6 +237,29 @@ def test_mbt(args, dataloader_val, comment,
 
           # 3.3. Compute the mean prediction
           predict = (predict_b1 + predict_b2 + predict_b3) / 3
+
+          #################
+          # PSEUDO-LABELS #
+          #################
+          if save_pseudo_labels:
+              
+              # For each image in the batch
+              for j in range(predict.size(0)):
+                  
+                  # PL.1. Get the predicted label
+                  pred = predict[j].squeeze(0) # Squash batch dimension
+                  pred = reverse_one_hot(pred) # Convert to 2D tensor where each pixel is the class index
+                  pred = np.array(pred.cpu()) # Convert to numpy array
+                  predicted_labels[i*args.batch_size + j] = pred
+
+                  # PL.2. Get the predicted probabilities
+                  probs = F.softmax(predict[j], dim=0)
+                  probs = np.array(probs.cpu())
+                  predicted_probs[i*args.batch_size + j] = probs
+
+                  # PL.3. Get the image name
+                  name = dataloader_val.dataset.files[i*args.batch_size + j]
+                  image_names.append(name)
 
           # 3.4. Get the predicted label
           predict = predict.squeeze(0) # Squash batch dimension
@@ -231,6 +282,44 @@ def test_mbt(args, dataloader_val, comment,
       print('precision per pixel for test: %.3f' % precision)
       print('mIoU for test: %.3f' % miou)
       print('miou_list: ', miou_list)
+
+      #################
+      # PSEUDO-LABELS #
+      #################
+      if save_pseudo_labels:
+      
+          # PL.4. Filter out the low-confidence predictions
+          # For each semantic class
+          for i in range(n_classes):
+              
+              # PL.4.1. Get the probabilities for the current class
+              probs = predicted_probs[:,:,i]
+              
+              # PL.4.2. Compute the threshold
+              # - top 66% or above 0.9
+              threshold = np.percentile(probs, 66, axis=0)
+              threshold = np.where(threshold < 0.9, 0.9, threshold)
+              
+              # PL.4.3. Filter out the low-confidence predictions
+              predicted_labels[probs < threshold] = 255
+
+          # PL.5. Save the pseudo-labels
+          for i, name in enumerate(image_names):
+              
+              # PL.5.1. Get the final path
+              name = name.split('/')[-1]
+              name = name.split('.')[0]
+              name = name + '.png'
+              path = os.path.join(save_path, name)
+
+              # PL.5.2. Save the pseudo-labeL as a H=1024 W=2048 RGB image
+              im_colored = CityScapes.decode_target(predicted_labels[i])
+              im_colored = Image.fromarray(im_colored)
+              im_transformed = im_colored.resize((2048, 1024), Image.NEAREST)
+              im_transformed.save(path)
+
+          print('Pseudo-labels saved!')
+
 
       return precision, miou
       
