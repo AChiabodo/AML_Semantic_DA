@@ -349,28 +349,45 @@ def save_pseudo(args, target_dataloader_train,
               name = path.split('\\')[-1]
               image_names.append(folder + '\\' + name)
     
-      # PL.4. Filter out the low-confidence predictions
-      # For each semantic class
-      for i in range(n_classes):
+      # PL.4. Compute the thresholds for each class
+      print('Computing thresholds for each class...')
+      thres = []
+      for c in range(n_classes):
           
           # PL.4.1. Get the probabilities for the current class
-          probs = predicted_probs[:,:,i]
-          
-          # PL.4.2. Compute the threshold
-          # - top 66% or above 0.9
-          threshold = np.percentile(probs, 66, axis=0)
-          threshold = np.where(threshold < 0.9, 0.9, threshold)
-          
-          # PL.4.3. Filter out the low-confidence predictions
-          predicted_labels[probs < threshold] = 255
+          class_probs = np.array([p[c] for p in predicted_probs])
 
-      # PL.5. Save the pseudo-labels
+          # PL.4.2. If there are no predictions for the class
+          if len(class_probs) == 0:
+              # Set the class threshold to 0
+              thres.append(0)
+              continue
+          
+          # PL.4.3. Sort the probabilities
+          class_probs = np.sort(class_probs)
+          
+          # PL.4.4. Get the threshold for the top 66% of the predictions
+          thres.append(class_probs[int(round(len(class_probs)*0.66))])
+      
+      thres = np.array(thres)
+      thres = np.maximum(thres, 0.9)
+      print('Thresholds for each class: ', thres)
+
+      # PL.5. Filter out the low-confidence predictions
+      print('Filtering out the low-confidence predictions...')
+      for i in range(len(predicted_labels)):
+          for c in range(n_classes):
+              # PL.5.1. Set the low-confidence predictions to 255 (ignored class)
+              predicted_labels[i][predicted_probs[i][c] < thres[c]] = 255
+
+      # PL.6. Save the pseudo-labels
+      print('Saving pseudo-labels...')  
       for i, name in enumerate(image_names):
           
-          # PL.5.1. Get the final path
+          # PL.6.1. Get the final path
           path = os.path.join(save_path, name)
 
-          # PL.5.2. Save the pseudo-labeL as a H=1024 W=2048 RGB image
+          # PL.6.2. Save the pseudo-labeL as a H=1024 W=2048 RGB image
           im_colored = CityScapes.decode_target(predicted_labels[i])
           im_colored = Image.fromarray(im_colored)
           im_transformed = im_colored.resize((2048, 1024), Image.NEAREST)
