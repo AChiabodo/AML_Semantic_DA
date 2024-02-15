@@ -275,9 +275,6 @@ def save_pseudo(args, target_dataloader_train,
       pretrain_path = args.pretrain_path
       use_conv_last = args.use_conv_last
 
-      precision_record = [] # list to store precision per pixel
-      hist = np.zeros((n_classes, n_classes)) # confusion matrix (for mIoU)
-
       # 1. Pseudo-labels Initialization
       #################################
           
@@ -311,7 +308,7 @@ def save_pseudo(args, target_dataloader_train,
       model_b3.cuda()
       model_b3.eval()
 
-      print('Testing MBT Adaptation...')
+      print('MBT Adaptation...')
 
       # 3. Iterate over the validation dataset
       for i, (data, label) in enumerate(target_dataloader_train):
@@ -351,32 +348,7 @@ def save_pseudo(args, target_dataloader_train,
               folder = path.split('\\')[-2]
               name = path.split('\\')[-1]
               image_names.append(folder + '\\' + name)
-
-          # 3.4. Get the predicted label
-          predict = predict.squeeze(0) # Squash batch dimension
-          predict = reverse_one_hot(predict) # Convert to 2D tensor where each pixel is the class index
-          predict = np.array(predict.cpu()) # Convert to numpy array
-
-          # 3.5. Get the ground truth label
-          label = label.squeeze()
-          label = np.array(label.cpu())
-
-          # 3.6. Compute precision per pixel and update the confusion matrix
-          precision = compute_global_accuracy(predict, label)
-          hist += fast_hist(label.flatten(), predict.flatten(), n_classes)
-          precision_record.append(precision)
-
-      # 4. Compute metrics
-      precision = np.mean(precision_record)
-      miou_list = per_class_iu(hist)
-      miou = np.mean(miou_list)
-      print('precision per pixel for test: %.3f' % precision)
-      print('mIoU for test: %.3f' % miou)
-      print('miou_list: ', miou_list)
-
-      #################
-      # PSEUDO-LABELS #
-      #################      
+    
       # PL.4. Filter out the low-confidence predictions
       # For each semantic class
       for i in range(n_classes):
@@ -405,9 +377,6 @@ def save_pseudo(args, target_dataloader_train,
           im_transformed.save(path)
 
       print('Pseudo-labels saved!')
-
-
-      return precision, miou
       
 
 
