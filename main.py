@@ -28,13 +28,17 @@ from training.fda_train import train_fda
 from eval import val
 
 # GLOBAL VARIABLES
-# Image mean of the Cityscapes dataset (used for normalization)
-MEAN_ImageNet = torch.tensor([0.485, 0.456, 0.406])
-STD_ImageNet = torch.tensor([0.229, 0.224, 0.225])
+# Image mean of the GTA dataset (used for normalization)
+GTA_MEAN = torch.tensor([105.8735, 109.0072, 101.7702])
+GTA_STD = torch.tensor([56.2629, 55.8382, 55.4247])
+
 # Image mean of the Cityscapes dataset (used for normalization)
 MEAN_CS = torch.tensor([104.00698793, 116.66876762, 122.67891434])
 STD_CS = torch.tensor([1.0, 1.0, 1.0])
 
+# Image mean calculated on our dataset
+MEAN = torch.tensor([78.5516, 87.7790, 76.9834])
+STD = torch.tensor([47.5697, 48.2976, 47.6105])
 """
   LAST TRAINING TRIALS:
 
@@ -231,7 +235,7 @@ def main():
     # 2. Data Transformations Selection
         
     """By default, the images are resized to 0.5 of their original size to reduce computational cost"""
-    standard_transformations = ExtCompose([ExtScale(0.5,interpolation=Image.Resampling.BILINEAR), ExtToTensor(),ExtNormalize(mean=MEAN_ImageNet,std=STD_ImageNet)])
+    standard_transformations = ExtCompose([ExtScale(0.5,interpolation=Image.Resampling.BILINEAR), ExtToTensor()])
     """The Validation Set is also resized to 0.5 of its original size"""
     eval_transformations = standard_transformations
 
@@ -255,9 +259,9 @@ def main():
             
             elif args.dataset == 'CROSS_DOMAIN':
                 """DA needs the same size for the images of the source and target domain and Normalization with the mean and std of the ImageNet dataset"""
-                transformations = ExtCompose([ExtResize((512,1024)), ExtToTensor(), ExtNormalize()])
+                transformations = ExtCompose([ExtResize((512,1024)), ExtToTensor(),ExtNormalize(mean=GTA_MEAN,std=GTA_STD)])
                 target_transformations = transformations
-                eval_transformations = ExtCompose([ExtResize((512,1024)), ExtToTensor(),ExtNormalize()])
+                eval_transformations = ExtCompose([ExtResize((512,1024)), ExtToTensor(), ExtNormalize(mean=GTA_MEAN,std=GTA_STD)])
             
         case 1:
             """
@@ -272,10 +276,20 @@ def main():
                 ExtRandomCrop((512, 1024)),
                 ExtRandomHorizontalFlip(),
                 ExtToTensor(),
-                ExtNormalize(mean=MEAN_ImageNet,std=STD_ImageNet)
+                ExtNormalize(mean=MEAN,std=STD)
                 ],
-                [ExtResize((512,1024)), ExtToTensor(),ExtNormalize(mean=MEAN_ImageNet,std=STD_ImageNet)])
+                [ExtResize((512,1024)), ExtToTensor(),ExtNormalize(mean=MEAN,std=STD)])
             target_transformations = standard_transformations
+
+            if args.mode == 'train_fda' or args.mode == 'test_mbt':
+                transformations = ExtRandomCompose([
+                ExtScale(random.choice([1,1.25,1.5,1.75,2]),interpolation=Image.Resampling.BILINEAR),
+                ExtRandomCrop((args.crop_height, args.crop_width)),
+                ExtRandomHorizontalFlip(),
+                ExtToTensor()],
+                [ExtResize((512,1024)), ExtToTensor()])
+                target_transformations = transformations
+                eval_transformations = ExtCompose([ExtResize((512,1024)), ExtToTensor(),ExtNormalize(mean=MEAN_CS,std=torch.tensor([1.0,1.0,1.0]))])
 
         case 2:
             """
@@ -294,8 +308,8 @@ def main():
                 ExtGaussianBlur(p=0.5, radius=1),
                 ExtColorJitter(p=0.5, brightness=0.2, contrast=0.1, saturation=0.1, hue=0.2),
                 ExtToTensor(),
-                ExtNormalize(mean=MEAN_ImageNet,std=STD_ImageNet)],
-                [ExtResize((512,1024)), ExtToTensor(),ExtNormalize(mean=MEAN_ImageNet,std=STD_ImageNet)])
+                ExtNormalize(mean=MEAN,std=STD)],
+                [ExtResize((512,1024)), ExtToTensor(),ExtNormalize(mean=MEAN,std=STD)])
             target_transformations = standard_transformations
 
             if args.mode == 'train_fda' or args.mode == 'test_mbt':
