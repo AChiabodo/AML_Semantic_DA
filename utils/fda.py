@@ -283,8 +283,8 @@ def save_pseudo(args, target_dataloader_train,
           os.makedirs(save_path)
 
       # 1.2. Initialize the arrays to store the pseudo-labels
-      predicted_labels = np.zeros((len(target_dataloader_train), 512, 1024), dtype=np.uint8)
-      predicted_probs = np.zeros((len(target_dataloader_train), 512, 1024), dtype=np.float32)
+      predicted_labels = [] #np.zeros((len(target_dataloader_train), 512, 1024), dtype=np.uint8)
+      predicted_probs = [] #np.zeros((len(target_dataloader_train), 512, 1024), dtype=np.float32)
       image_names = []
 
       print('Pseudo-labels will be saved in: ', save_path)
@@ -337,11 +337,11 @@ def save_pseudo(args, target_dataloader_train,
               pred = predict[j].squeeze(0) # Squash batch dimension
               pred = reverse_one_hot(pred) # Convert to 2D tensor where each pixel is the class index
               pred = np.array(pred.cpu()) # Convert to numpy array
-              predicted_labels[i*args.batch_size + j] = pred
+              predicted_labels.append(pred)
 
               # PL.2. Get the predicted probabilities
               probs = np.max(predict[j].cpu().numpy(), axis=0)
-              predicted_probs[i*args.batch_size + j] = probs
+              predicted_probs.append(probs)
 
               # PL.3. Get the image name
               path = target_dataloader_train.dataset.images[i*args.batch_size + j]
