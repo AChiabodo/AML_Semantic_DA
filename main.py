@@ -19,7 +19,7 @@ from datasets.GTA5 import GTA5
 # Utils
 from utils.general import str2bool, load_ckpt
 from utils.aug import ExtCompose, ExtToTensor, ExtRandomHorizontalFlip , ExtScale , ExtRandomCrop, ExtGaussianBlur, ExtColorJitter, ExtRandomCompose, ExtResize, ExtNormalize
-from utils.fda import test_mbt
+from utils.fda import test_mbt, save_pseudo
 # Training
 from training.simple_train import train
 from training.single_layer_da_train import train_da
@@ -78,6 +78,7 @@ def parse_args():
                             'training with Domain Adaptation (train_da),'+
                             'training with Fourier Domain Adaptation (train_fda),'+
                             'FDA adapted with Multi-band Transfer (test_mbt)'+
+                            'saving the pseudo labels generated using MBT (save_pseudo)'
                             'or testing an already trained model (test)'
     )
     parse.add_argument('--backbone',
@@ -222,6 +223,11 @@ def parse_args():
                         type=str,
                         default='trained_models\\test_norm_fda_0.09\\best.pth',
                         help='Path to the model trained with beta=0.09'
+    )
+    parse.add_argument('--save_pseudo_path',
+                        type=str,
+                        default='dataset\\Cityscapes\\pseudo_labels',
+                        help='Path to the folder where to save the pseudo labels generated using Multi-band Transfer'
     )
     return parse.parse_args()
 
@@ -424,8 +430,11 @@ def main():
             # 10.3. Training with Fourier Domain Adaptation
             train_fda(args, model, optimizer, source_dataloader_train, target_dataloader_train, dataloader_val, comment=args.comment,beta=args.beta)
         case 'test_mbt':
-            # 10.4. Testing the already trained FDA models using Multi-band Transfer
-            test_mbt(args, dataloader_val, comment=args.comment, path_b1=args.fda_b1_path, path_b2=args.fda_b2_path, path_b3=args.fda_b3_path)
+            # 10.4. Testing the already trained FDA models using Multi-band Transfer => MBT on the Validation Set of Cityscapes
+            test_mbt(args, dataloader_val, path_b1=args.fda_b1_path, path_b2=args.fda_b2_path, path_b3=args.fda_b3_path)
+        case 'save_pseudo':
+            # 10.5. Save the pseudo labels generated using Multi-band Transfer => MBT on the Training Set of Cityscapes
+            save_pseudo(args, target_dataloader_train, path_b1=args.fda_b1_path, path_b2=args.fda_b2_path, path_b3=args.fda_b3_path, save_path=args.save_pseudo_path)
         case 'test':
             # 10.4. Load the trained model and evaluate it on the Validation Set
             try:
