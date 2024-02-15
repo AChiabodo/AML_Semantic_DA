@@ -347,6 +347,8 @@ def save_pseudo(args, target_dataloader_train,
               # PL.3. Get the image name
               path = target_dataloader_train.dataset.images[i*args.batch_size + j]
               folder = path.split('\\')[-2]
+              if not os.path.exists(save_path + '\\' + folder):
+                  os.makedirs(save_path + '\\' + folder)
               name = path.split('\\')[-1]
               image_names.append(folder + '\\' + name)
 
