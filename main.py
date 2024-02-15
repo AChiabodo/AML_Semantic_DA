@@ -257,12 +257,13 @@ def main():
             target_transformations = standard_transformations
             
             
-            if args.mode == 'train_fda' or args.mode == 'test_mbt' or args.mode == 'save_pseudo':
+            if args.mode == 'train_fda' or args.mode == 'test_mbt':
                 """FDA does not need Normalization before the Fourier Transform"""
                 transformations = ExtCompose([ExtResize((512,1024)), ExtToTensor()])
                 target_transformations = transformations
                 eval_transformations = ExtCompose([ExtResize((512,1024)), ExtToTensor(),ExtNormalize(mean=MEAN_CS,std=torch.tensor([1.0,1.0,1.0]))])
-            
+            elif args.mode == 'save_pseudo':
+                target_transformations = ExtCompose([ExtResize((512,1024)), ExtToTensor(),ExtNormalize(mean=MEAN_CS,std=torch.tensor([1.0,1.0,1.0]))])
             elif args.dataset == 'CROSS_DOMAIN':
                 """DA needs the same size for the images of the source and target domain and Normalization with the mean and std of the ImageNet dataset"""
                 transformations = ExtCompose([ExtResize((512,1024)), ExtToTensor(),ExtNormalize(mean=GTA_MEAN,std=GTA_STD)])

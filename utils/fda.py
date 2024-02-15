@@ -312,9 +312,6 @@ def save_pseudo(args, target_dataloader_train,
 
       # 3. Iterate over the validation dataset
       for i, (data, label) in enumerate(target_dataloader_train):
-          
-          if i > 0:
-              break
 
           # 3.1. Load data and label to GPU
           label = label.type(torch.LongTensor)
@@ -328,8 +325,6 @@ def save_pseudo(args, target_dataloader_train,
 
           # 3.3. Compute the mean prediction
           predict = (predict_b1 + predict_b2 + predict_b3) / 3
-
-          print('predict : ', predict[0][0][0])
 
           #################
           # PSEUDO-LABELS #
