@@ -14,8 +14,8 @@ from datasets.cityscapes import CityScapes
 from utils.general import poly_lr_scheduler, load_ckpt
 from eval import evaluate_and_save_model
 
-MEAN = torch.tensor([0.485, 0.456, 0.406])
-STD = torch.tensor([0.229, 0.224, 0.225])
+MEAN = torch.tensor([78.5516, 87.7790, 76.9834])
+STD = torch.tensor([47.5697, 48.2976, 47.6105])
 
 def train(args, model, optimizer, dataloader_train, dataloader_val, comment=''):
     """
@@ -122,7 +122,7 @@ def train(args, model, optimizer, dataloader_train, dataloader_val, comment=''):
 
         # 2.7. Evaluate the model on the validation set every {args.validation_step} epochs
         if epoch % args.validation_step == 0 and epoch != 0:
-            max_miou = evaluate_and_save_model(args, model, dataloader_val, writer, epoch, step, max_miou)
+            max_miou = evaluate_and_save_model(args, model, dataloader_val, writer, epoch, step, max_miou,mean=MEAN,std=STD)
     
     # 3. Final Evaluation
-    max_miou = evaluate_and_save_model(args, model, dataloader_val, writer, epoch, step, max_miou)
+    max_miou = evaluate_and_save_model(args, model, dataloader_val, writer, epoch, step, max_miou,mean=MEAN,std=STD)

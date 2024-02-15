@@ -16,9 +16,9 @@ from datasets.cityscapes import CityScapes
 from utils.general import poly_lr_scheduler, save_ckpt, load_ckpt
 from eval import evaluate_and_save_model
 
-MEAN = torch.tensor([0.485, 0.456, 0.406])
-STD = torch.tensor([0.229, 0.224, 0.225])
-USE_SOFTMAX = False
+MEAN = torch.tensor([78.5516, 87.7790, 76.9834])
+STD = torch.tensor([47.5697, 48.2976, 47.6105])
+USE_SOFTMAX = True
 USE_LINEAR_LAMBDA = False
 
 def train_da(args, model, optimizer, source_dataloader_train, target_dataloader_train, target_dataloader_val, comment='', layer=0,starting_epoch=0,d_lr=0.001):
@@ -276,7 +276,7 @@ def train_da(args, model, optimizer, source_dataloader_train, target_dataloader_
 
         # 4.9. Evaluate the model on the validation set every {args.validation_step} epochs
         if epoch % args.validation_step == 0 and epoch != 0:
-            max_miou = evaluate_and_save_model(args, model, target_dataloader_val, writer, epoch, step, max_miou)
+            max_miou = evaluate_and_save_model(args, model, target_dataloader_val, writer, epoch, step, max_miou,mean=MEAN,std=STD)
     
     # 5. Final Evaluation
-    max_miou = evaluate_and_save_model(args, model, target_dataloader_val, writer, epoch, step, max_miou)
+    max_miou = evaluate_and_save_model(args, model, target_dataloader_val, writer, epoch, step, max_miou,mean=MEAN,std=STD)
