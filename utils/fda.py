@@ -334,9 +334,7 @@ def save_pseudo(args, target_dataloader_train,
           for j in range(predict.size(0)):
               
               # PL.1. Get the predicted label
-              pred = predict[j].squeeze(0) # Squash batch dimension
-              pred = reverse_one_hot(pred) # Convert to 2D tensor where each pixel is the class index
-              pred = np.array(pred.cpu()) # Convert to numpy array
+              pred = np.argmax(predict[j].cpu().numpy(), axis=0)
               predicted_labels.append(pred)
 
               # PL.2. Get the predicted probabilities
