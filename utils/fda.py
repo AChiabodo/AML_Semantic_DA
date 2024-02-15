@@ -329,16 +329,19 @@ def save_pseudo(args, target_dataloader_train,
           #################
           # PSEUDO-LABELS #
           #################
-              
+          
           # For each image in the batch
           for j in range(predict.size(0)):
               
+              output = predict[j].cpu().numpy()
+              output = output.transpose(1, 2, 0)
+              
               # PL.1. Get the predicted label
-              pred = np.argmax(predict[j].cpu().numpy(), axis=0)
+              pred = np.argmax(output, axis=2)
               predicted_labels.append(pred)
 
               # PL.2. Get the predicted probabilities
-              probs = np.max(predict[j].cpu().numpy(), axis=0)
+              probs = np.max(output, axis=2)
               predicted_probs.append(probs)
 
               # PL.3. Get the image name
@@ -374,27 +377,23 @@ def save_pseudo(args, target_dataloader_train,
       thres[thres > 0.9] = 0.9
       print('Thresholds for each class: ', thres)
 
-      # PL.5. Filter out the low-confidence predictions
-      print('Filtering out the low-confidence predictions...')
+      # PL.5. Filter out the low-confidence predictions and save the pseudo-labels
+      print('Filtering and saving pseudo-labels...')
       for i in range(len(predicted_labels)):
+          
+          # PL.5.1. Get the image name, predicted label, and predicted probability
+          name = image_names[i]
           label = predicted_labels[i]
           prob = predicted_probs[i]
+          
+          # PL.5.1. Set the low-confidence predictions to 255 (ignored class)
           for c in range(n_classes):
-              # PL.5.1. Set the low-confidence predictions to 255 (ignored class)
               label[ (prob < thres[c]) & (label == c) ] = 255
 
-      # PL.6. Save the pseudo-labels
-      print('Saving pseudo-labels...')  
-      for i, name in enumerate(image_names):
-          
-          # PL.6.1. Get the final path
-          path = os.path.join(save_path, name)
-
-          # PL.6.2. Save the pseudo-labeL as a H=1024 W=2048 RGB image
-          im_colored = CityScapes.decode_target(predicted_labels[i])
-          im_colored = Image.fromarray(im_colored)
-          im_transformed = im_colored.resize((2048, 1024), Image.NEAREST)
-          im_transformed.save(path)
+          # PL.5.2. Save the pseudo-label
+          output = np.asarray(label, dtype=np.uint8)
+          output_im = Image.fromarray(output)
+          output_im.save(os.path.join(save_path, name))
 
       print('Pseudo-labels saved!')
       
