@@ -112,9 +112,9 @@ def train_fda(args, model, optimizer, source_dataloader_train, target_dataloader
                 
                 # FDA.3.2. Compute the segmentation loss for the source domain
                 ce_loss1 = ce_loss(s_output, source_label.squeeze(1))
-                #ce_loss2 = ce_loss(s_out16, source_label.squeeze(1))
-                #ce_loss3 = ce_loss(s_out32, source_label.squeeze(1))
-                ce_loss_value = ce_loss1 #+ ce_loss2 + ce_loss3
+                ce_loss2 = ce_loss(s_out16, source_label.squeeze(1))
+                ce_loss3 = ce_loss(s_out32, source_label.squeeze(1))
+                ce_loss_value = ce_loss1 + ce_loss2 + ce_loss3
             
             # FDA.4. Get the predictions for the target images
             with amp.autocast():
@@ -123,7 +123,10 @@ def train_fda(args, model, optimizer, source_dataloader_train, target_dataloader
                 t_output, t_out16, t_out32 = model(target_data)
 
                 # FDA.4.2. Compute the entropy minimization loss for the target domain
-                ent_loss_value = ent_loss(t_output, ita)
+                ent_loss1 = ent_loss(t_output, ita)
+                ent_loss2 = ent_loss(t_out16, ita)
+                ent_loss3 = ent_loss(t_out32, ita)
+                ent_loss_value = ent_loss1 + ent_loss2 + ent_loss3
                 
                 # FDA.4.3. Compute the total loss for the batch
                 loss = ce_loss_value + ent_weight * ent_loss_value
