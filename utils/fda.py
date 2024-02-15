@@ -253,13 +253,14 @@ def test_mbt(args, dataloader_val, comment,
                   predicted_labels[i*args.batch_size + j] = pred
 
                   # PL.2. Get the predicted probabilities
-                  probs = F.softmax(predict[j], dim=0)
-                  probs = np.array(probs.cpu())
+                  probs = np.max(predict[j].cpu().numpy(), axis=0)
                   predicted_probs[i*args.batch_size + j] = probs
 
                   # PL.3. Get the image name
-                  name = dataloader_val.dataset.files[i*args.batch_size + j]
-                  image_names.append(name)
+                  path = dataloader_val.dataset.images[i*args.batch_size + j]
+                  folder = path.split('\\')[-2]
+                  name = path.split('\\')[-1]
+                  image_names.append(folder + '\\' + name)
 
           # 3.4. Get the predicted label
           predict = predict.squeeze(0) # Squash batch dimension
@@ -307,9 +308,6 @@ def test_mbt(args, dataloader_val, comment,
           for i, name in enumerate(image_names):
               
               # PL.5.1. Get the final path
-              name = name.split('/')[-1]
-              name = name.split('.')[0]
-              name = name + '.png'
               path = os.path.join(save_path, name)
 
               # PL.5.2. Save the pseudo-labeL as a H=1024 W=2048 RGB image
