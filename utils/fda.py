@@ -346,6 +346,9 @@ def save_pseudo(args, target_dataloader_train,
               folder = path.split('\\')[-2]
               name = path.split('\\')[-1]
               image_names.append(folder + '\\' + name)
+
+      predicted_labels = np.array(predicted_labels)
+      predicted_probs = np.array(predicted_probs)
     
       # PL.4. Compute the thresholds for each class
       print('Computing thresholds for each class...')
@@ -353,7 +356,7 @@ def save_pseudo(args, target_dataloader_train,
       for c in range(n_classes):
           
           # PL.4.1. Get the probabilities for the current class
-          class_probs = np.array([p[c] for p in predicted_probs])
+          class_probs = predicted_probs[predicted_labels == c]
 
           # PL.4.2. If there are no predictions for the class
           if len(class_probs) == 0:
@@ -368,15 +371,17 @@ def save_pseudo(args, target_dataloader_train,
           thres.append(class_probs[int(round(len(class_probs)*0.66))])
       
       thres = np.array(thres)
-      thres = np.maximum(thres, 0.9)
+      thres[thres > 0.9] = 0.9
       print('Thresholds for each class: ', thres)
 
       # PL.5. Filter out the low-confidence predictions
       print('Filtering out the low-confidence predictions...')
       for i in range(len(predicted_labels)):
+          label = predicted_labels[i]
+          prob = predicted_probs[i]
           for c in range(n_classes):
               # PL.5.1. Set the low-confidence predictions to 255 (ignored class)
-              predicted_labels[i][predicted_probs[i][c] < thres[c]] = 255
+              label[ (prob < thres[c]) & (label == c) ] = 255
 
       # PL.6. Save the pseudo-labels
       print('Saving pseudo-labels...')  
