@@ -73,7 +73,7 @@ def parse_args():
     parse.add_argument('--mode',
                        dest='mode',
                        type=str,
-                       default='train',
+                       default='save_pseudo',
                        help='Select between simple training (train),'+
                             'training with Domain Adaptation (train_da),'+
                             'training with Fourier Domain Adaptation (train_fda),'+
@@ -257,7 +257,7 @@ def main():
             target_transformations = standard_transformations
             
             
-            if args.mode == 'train_fda' or args.mode == 'test_mbt':
+            if args.mode == 'train_fda' or args.mode == 'test_mbt' or args.mode == 'save_pseudo':
                 """FDA does not need Normalization before the Fourier Transform"""
                 transformations = ExtCompose([ExtResize((512,1024)), ExtToTensor()])
                 target_transformations = transformations
@@ -287,7 +287,7 @@ def main():
                 [ExtResize((512,1024)), ExtToTensor(),ExtNormalize(mean=MEAN,std=STD)])
             target_transformations = standard_transformations
 
-            if args.mode == 'train_fda' or args.mode == 'test_mbt':
+            if args.mode == 'train_fda' or args.mode == 'test_mbt' or args.mode == 'save_pseudo':
                 transformations = ExtRandomCompose([
                 ExtScale(random.choice([1,1.25,1.5,1.75,2]),interpolation=Image.Resampling.BILINEAR),
                 ExtRandomCrop((args.crop_height, args.crop_width)),
@@ -318,7 +318,7 @@ def main():
                 [ExtResize((512,1024)), ExtToTensor(),ExtNormalize(mean=MEAN,std=STD)])
             target_transformations = standard_transformations
 
-            if args.mode == 'train_fda' or args.mode == 'test_mbt':
+            if args.mode == 'train_fda' or args.mode == 'test_mbt' or args.mode == 'save_pseudo':
                 transformations = ExtRandomCompose([
                 ExtScale(random.choice([1.25,1.5,1.75,2]),interpolation=Image.Resampling.BILINEAR),
                 ExtRandomCrop((args.crop_height, args.crop_width)),

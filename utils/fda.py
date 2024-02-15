@@ -312,6 +312,9 @@ def save_pseudo(args, target_dataloader_train,
 
       # 3. Iterate over the validation dataset
       for i, (data, label) in enumerate(target_dataloader_train):
+          
+          if i > 0:
+              break
 
           # 3.1. Load data and label to GPU
           label = label.type(torch.LongTensor)
@@ -325,6 +328,8 @@ def save_pseudo(args, target_dataloader_train,
 
           # 3.3. Compute the mean prediction
           predict = (predict_b1 + predict_b2 + predict_b3) / 3
+
+          print('predict : ', predict[0][0][0])
 
           #################
           # PSEUDO-LABELS #
@@ -394,8 +399,10 @@ def save_pseudo(args, target_dataloader_train,
 
           # PL.5.2. Save the pseudo-label
           output = np.asarray(label, dtype=np.uint8)
-          output_im = Image.fromarray(output)
-          output_im.save(os.path.join(save_path, name))
+          output_col = CityScapes.decode_target(output)
+          output_im = Image.fromarray(output_col.astype(np.uint8))
+          output_truesize = output_im.resize((2048, 1024), Image.NEAREST)
+          output_truesize.save(os.path.join(save_path, name))
 
       print('Pseudo-labels saved!')
       
