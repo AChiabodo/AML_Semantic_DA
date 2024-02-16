@@ -258,10 +258,10 @@ def main():
             elif args.mode == 'save_pseudo':
                 target_transformations = ExtCompose([ExtResize((512,1024)), ExtToTensor(),ExtNormalize(mean=MEAN,std=torch.tensor([1.0,1.0,1.0]))])
             elif args.dataset == 'CROSS_DOMAIN':
-                """DA needs the same size for the images of the source and target domain and Normalization with the mean and std of the ImageNet dataset"""
-                transformations = ExtCompose([ExtResize((512,1024)), ExtToTensor(),ExtNormalize(mean=MEAN,std=STD)])
+                """DA needs the same size for the images of the source and target domains"""
+                transformations = ExtCompose([ExtResize((512,1024)), ExtToTensor()])
                 target_transformations = transformations
-                eval_transformations = ExtCompose([ExtResize((512,1024)), ExtToTensor(), ExtNormalize(mean=MEAN,std=STD)])
+                eval_transformations = ExtCompose([ExtResize((512,1024)), ExtToTensor()])
             
         case 1:
             """
@@ -279,7 +279,8 @@ def main():
                 ExtNormalize(mean=MEAN,std=STD)
                 ],
                 [ExtResize((512,1024)), ExtToTensor(),ExtNormalize(mean=MEAN,std=STD)])
-            target_transformations = standard_transformations
+            target_transformations = ExtCompose([ExtResize((512,1024)), ExtToTensor(),ExtNormalize(mean=MEAN,std=STD)])
+            eval_transformations = target_transformations
 
             if args.mode == 'train_fda' or args.mode == 'test_mbt' or args.mode == 'save_pseudo':
                 transformations = ExtRandomCompose([
