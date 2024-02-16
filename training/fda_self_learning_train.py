@@ -18,18 +18,16 @@ from eval import evaluate_and_save_model
 from utils.aug import ExtNormalize
 # GLOBAL VARIABLES
 # Image mean of the Cityscapes dataset (used for normalization)
-MEAN = torch.tensor([104.00698793, 116.66876762, 122.67891434])
-STD = torch.tensor([1.0, 1.0, 1.0])
+MEAN_CS = torch.tensor([104.00698793, 116.66876762, 122.67891434])
+STD_CS = torch.tensor([1.0, 1.0, 1.0])
 # COMMAND LINE
-# python main.py --mode train_fda --dataset CROSS_DOMAIN --save_model_path trained_models\fda_0.09 --comment fda_0.09 --data_transformation 0 --batch_size 5 --num_workers 4 --optimizer adam
+# python main.py --mode self_learning --dataset CROSS_DOMAIN --save_model_path trained_models\self_learning_0.01 --comment self_learning_0.01 --data_transformation 0 --batch_size 5 --num_workers 4 --optimizer adam
 
-def train_fda(args, model, optimizer, source_dataloader_train, target_dataloader_train, target_dataloader_val, comment='', starting_epoch=0,
-              beta=0.09, ent_weight=0.005, ita=2.0):
+def train_self_learning_fda(args, model, optimizer, source_dataloader_train, target_dataloader_train, target_dataloader_val, comment='', starting_epoch=0,
+              beta=0.01, ent_weight=0.005, ita=2.0):
     """
-    Train the model using `Fourier Domain Adaptation (DA)` for semantic segmentation tasks. 
-    
-    This function trains the model using the source and target domain data, 
-    and adapts the appearance of the source images to the target domain using FDA.
+    Train the model using `Fourier Domain Adaptation (DA)` for semantic segmentation tasks
+    and `Self-Learning` thanks to the pseudo-labels previously computed using `MBT`.
     
     Args:
     - ...
@@ -77,16 +75,17 @@ def train_fda(args, model, optimizer, source_dataloader_train, target_dataloader
         for i, (source_data, target_data) in enumerate(zip(source_dataloader_train,target_dataloader_train)):
 
             # 4.5.1. Load data and label to GPU
-            source_data,source_label = source_data
-            target_data,_ = target_data
+            source_data, source_label = source_data
+            target_data, target_pseudo_label = target_data
             source_data = source_data.cuda()
             source_label = source_label.long().cuda()
             target_data = target_data.cuda()
+            target_pseudo_label = target_pseudo_label.long().cuda()
 
             # 4.5.2. Zero the gradients
             optimizer.zero_grad()
 
-            # 4.5.4. Apply FDA
+            # 4.5.3. Apply FDA
             
             #############
             # Apply FDA #
@@ -97,31 +96,33 @@ def train_fda(args, model, optimizer, source_dataloader_train, target_dataloader
             t_source_data = FDA_source_to_target(source_data, target_data, beta)
 
             # FDA.2. Subtract the mean image from the source and target images for normalization
-            #t_source_data = t_source_data - mean_img
-            #target_data = target_data - mean_img
-            t_source_data, _ = ExtNormalize(mean=MEAN,std=STD)(t_source_data,lbl=source_label)
-            target_data, _ = ExtNormalize(mean=MEAN,std=STD)(target_data, lbl=source_label)
+            t_source_data, _ = ExtNormalize(mean=MEAN_CS,std=STD_CS)(t_source_data,lbl=source_label)
+            target_data, _ = ExtNormalize(mean=MEAN_CS,std=STD_CS)(target_data, lbl=source_label)
 
             # FDA.3. Get the predictions for the source images
             with amp.autocast():
                 
-                # FDA.3.1. Forward pass -> multi-scale outputs
+                # FDA.3.1. Forward pass
                 s_output, _, _ = model(t_source_data)
                 
-                # FDA.3.2. Compute the segmentation loss for the source domain
+                # FDA.3.2. Compute the segmentation loss with the ground truth labels
                 ce_loss_value = ce_loss(s_output, source_label.squeeze(1))
             
             # FDA.4. Get the predictions for the target images
             with amp.autocast():
                 
-                # FDA.4.1. Forward pass -> multi-scale outputs
+                # FDA.4.1. Forward pass
                 t_output, _, _ = model(target_data)
 
                 # FDA.4.2. Compute the entropy minimization loss for the target domain
                 ent_loss_value = ent_loss(t_output, ita)
+
+                # FDA.4.3. SELF-LEARNING: Compute the cross-entropy loss with the pseudo labels
+                # (Previously computed thanks to MBT)
+                ce_loss_pseudo_value = ce_loss(t_output, target_pseudo_label.squeeze(1))
                 
                 # FDA.4.3. Compute the total loss for the batch
-                loss = ce_loss_value + ent_weight * ent_loss_value
+                loss = ce_loss_value + ent_weight * ent_loss_value + ce_loss_pseudo_value
 
             # FDA.5. Backward pass
             scaler.scale(loss).backward()
@@ -133,12 +134,20 @@ def train_fda(args, model, optimizer, source_dataloader_train, target_dataloader
             # 4.5.4. Save the randomly selected image in the batch to tensorboard
             if i == image_number and epoch % 2 == 0: #saves the first image in the batch to tensorboard
                 print('epoch {}, iter {}, tot_loss: {}'.format(epoch, i, loss))
-                colorized_predictions , colorized_labels = CityScapes.visualize_prediction(s_output, source_label)
-                writer.add_image('epoch%d/iter%d/predicted_labels' % (epoch, i), np.array(colorized_predictions), step, dataformats='HWC')
-                writer.add_image('epoch%d/iter%d/correct_labels' % (epoch, i), np.array(colorized_labels), step, dataformats='HWC')
-                writer.add_image('epoch%d/iter%d/original_data' % (epoch, i), np.array(original_source_data[0].detach().cpu(),dtype='uint8'), step, dataformats='CHW')
-                t_source_data_vis = t_source_data + MEAN[:, None, None].cuda()
-                writer.add_image('epoch%d/iter%d/stylized_data' % (epoch, i), np.array(t_source_data_vis[0].detach().cpu(),dtype='uint8'), step, dataformats='CHW')
+
+                # GTA5
+                src_colorized_predictions , src_colorized_labels = CityScapes.visualize_prediction(s_output, source_label)
+                writer.add_image('epoch%d/iter%d/source_predicted_labels' % (epoch, i), np.array(src_colorized_predictions), step, dataformats='HWC')
+                writer.add_image('epoch%d/iter%d/source_correct_labels' % (epoch, i), np.array(src_colorized_labels), step, dataformats='HWC')
+                writer.add_image('epoch%d/iter%d/source_original_data' % (epoch, i), np.array(original_source_data[0].detach().cpu(),dtype='uint8'), step, dataformats='CHW')
+                t_source_data_vis = t_source_data + MEAN_CS[:, None, None].cuda()
+                writer.add_image('epoch%d/iter%d/source_stylized_data' % (epoch, i), np.array(t_source_data_vis[0].detach().cpu(),dtype='uint8'), step, dataformats='CHW')
+
+                # Cityscapes
+                tgt_colorized_predictions , tgt_colorized_pseudo_labels = CityScapes.visualize_prediction(t_output, target_pseudo_label)
+                writer.add_image('epoch%d/iter%d/target_predicted_labels' % (epoch, i), np.array(tgt_colorized_predictions), step, dataformats='HWC')
+                writer.add_image('epoch%d/iter%d/target_pseudo_labels' % (epoch, i), np.array(tgt_colorized_pseudo_labels), step, dataformats='HWC')
+                writer.add_image('epoch%d/iter%d/target_original_data' % (epoch, i), np.array(target_data[0].detach().cpu(),dtype='uint8'), step, dataformats='CHW')
 
             # 4.5.5. Update the progress bar
             tq.update(args.batch_size)
@@ -161,7 +170,7 @@ def train_fda(args, model, optimizer, source_dataloader_train, target_dataloader
         
         # 4.8. Evaluate the model on the validation set every {args.validation_step} epochs
         if epoch % args.validation_step == 0 and epoch != 0:
-            max_miou = evaluate_and_save_model(args, model, target_dataloader_val, writer, epoch, step, max_miou, mean=MEAN, std=STD)
+            max_miou = evaluate_and_save_model(args, model, target_dataloader_val, writer, epoch, step, max_miou, mean=MEAN_CS, std=STD_CS)
     
     # 5. Final Evaluation
-    max_miou = evaluate_and_save_model(args, model, target_dataloader_val, writer, epoch, step, max_miou, mean=MEAN, std=STD)
+    max_miou = evaluate_and_save_model(args, model, target_dataloader_val, writer, epoch, step, max_miou, mean=MEAN_CS, std=STD_CS)
