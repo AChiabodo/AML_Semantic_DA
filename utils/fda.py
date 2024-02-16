@@ -312,6 +312,9 @@ def save_pseudo(args, target_dataloader_train,
 
       # 3. Iterate over the validation dataset
       for i, (data, label) in enumerate(target_dataloader_train):
+          
+          if i > 1:
+              break
 
           # 3.1. Load data and label to GPU
           label = label.type(torch.LongTensor)
@@ -326,6 +329,7 @@ def save_pseudo(args, target_dataloader_train,
           # 3.3. Compute the mean prediction
           predict = (predict_b1 + predict_b2 + predict_b3) / 3
           predict = torch.nn.functional.softmax(predict, dim=1)
+
           #################
           # PSEUDO-LABELS #
           #################
@@ -350,6 +354,7 @@ def save_pseudo(args, target_dataloader_train,
               if not os.path.exists(save_path + '\\' + folder):
                   os.makedirs(save_path + '\\' + folder)
               name = path.split('\\')[-1]
+              name = name.split('_leftImg8bit.png')[0] + '_pseudo_label'
               image_names.append(folder + '\\' + name)
 
       predicted_labels = np.array(predicted_labels)
@@ -394,10 +399,19 @@ def save_pseudo(args, target_dataloader_train,
 
           # PL.5.2. Save the pseudo-label
           output = np.asarray(label, dtype=np.uint8)
+
+          # PL.5.3. Save the trainId pseudo-label
+          name_trainId = name + '_labelTrainIds.png'
+          output_im = Image.fromarray(output.astype(np.uint8))
+          output_truesize = output_im.resize((2048, 1024), Image.NEAREST)
+          output_truesize.save(os.path.join(save_path, name_trainId))
+
+          # PL.5.4. Save the colored pseudo-label
+          name_col = name + '_color.png'
           output_col = CityScapes.decode_target(output)
           output_im = Image.fromarray(output_col.astype(np.uint8))
           output_truesize = output_im.resize((2048, 1024), Image.NEAREST)
-          output_truesize.save(os.path.join(save_path, name))
+          output_truesize.save(os.path.join(save_path, name_col))          
 
       print('Pseudo-labels saved!')
       
