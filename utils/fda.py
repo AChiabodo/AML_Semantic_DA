@@ -325,7 +325,7 @@ def save_pseudo(args, target_dataloader_train,
 
           # 3.3. Compute the mean prediction
           predict = (predict_b1 + predict_b2 + predict_b3) / 3
-
+          predict = torch.nn.functional.softmax(predict, dim=1)
           #################
           # PSEUDO-LABELS #
           #################
@@ -390,7 +390,7 @@ def save_pseudo(args, target_dataloader_train,
           
           # PL.5.1. Set the low-confidence predictions to 255 (ignored class)
           for c in range(n_classes):
-              label[ (prob < thres[c]) & (label == c) ] = 255
+              label[ (prob < thres[c]) * (label == c) ] = 255
 
           # PL.5.2. Save the pseudo-label
           output = np.asarray(label, dtype=np.uint8)
