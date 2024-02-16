@@ -60,7 +60,7 @@ class CityScapes(VisionDataset):
     id_to_train_id = np.array([c.train_id for c in classes])
     id_to_color = np.array([c.color for c in classes])
 
-    
+
     def __init__(
         self,
         root: str = "dataset",
@@ -81,8 +81,16 @@ class CityScapes(VisionDataset):
         # 1. Set the directories for the images and the targets labels
         self.images_dir = os.path.join(self.root,"cityscapes","images",split)
         self.targets_dir = os.path.join(self.root,"cityscapes", self.mode, split)
+        
         if mode == "pseudo":
+
+            # 1.1. Get the targets dir for the pseudo labels
             self.targets_dir = os.path.join(self.root,"cityscapes", self.mode)
+
+            # 1.2. Verify that the directories contain as many images as the true target labels dir
+            msg = "The number of images and target labels does not match"
+            true_targets_dir = os.path.join(self.root,"cityscapes", self.mode, split)
+            assert len(os.listdir(self.images_dir)) == len(os.listdir(true_targets_dir)), msg   
 
         # 2. Initialize the variables for the dataset
         self.target_type = target_type

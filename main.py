@@ -24,6 +24,7 @@ from utils.fda import test_mbt, save_pseudo
 from training.simple_train import train
 from training.single_layer_da_train import train_da
 from training.fda_train import train_fda
+from training.fda_self_learning_train import train_self_learning_fda
 # Evaluation
 from eval import val
 
@@ -71,7 +72,8 @@ def parse_args():
                             'training with Domain Adaptation (train_da),'+
                             'training with Fourier Domain Adaptation (train_fda),'+
                             'FDA adapted with Multi-band Transfer (test_mbt)'+
-                            'saving the pseudo labels generated using MBT (save_pseudo)'
+                            'saving the pseudo labels generated using MBT (save_pseudo)'+
+                            'training with self-learning and pseudo labels (self_learning)'+
                             'or testing an already trained model (test)'
     )
     parse.add_argument('--backbone',
@@ -250,7 +252,7 @@ def main():
             target_transformations = standard_transformations
             
             
-            if args.mode == 'train_fda' or args.mode == 'test_mbt':
+            if args.mode == 'train_fda' or args.mode == 'test_mbt' or args.mode == 'self_learning':
                 """FDA does not need Normalization before the Fourier Transform"""
                 transformations = ExtCompose([ExtResize((512,1024)), ExtToTensor()])
                 target_transformations = transformations
@@ -341,6 +343,8 @@ def main():
         print('training on GTA and validating on Cityscapes')
         train_dataset = GTA5(root='dataset',transforms=transformations)
         target_dataset_train = CityScapes(split='train',transforms=target_transformations)
+        if args.mode == 'self_learning':
+            target_dataset_train = CityScapes(split='train',mode='pseudo',transforms=target_transformations)
         val_dataset = CityScapes(split='val',transforms=eval_transformations)
     else:
         print('not supported dataset \n')
@@ -429,6 +433,9 @@ def main():
         case 'save_pseudo':
             # 10.5. Save the pseudo labels generated using Multi-band Transfer => MBT on the Training Set of Cityscapes
             save_pseudo(args, target_dataloader_train, path_b1=args.fda_b1_path, path_b2=args.fda_b2_path, path_b3=args.fda_b3_path, save_path=args.save_pseudo_path)
+        case 'self_learning':
+            # 10.6. Training with Self-Learning FDA and Pseudo Labels
+            train_self_learning_fda(args, model, optimizer, source_dataloader_train, target_dataloader_train, dataloader_val, comment=args.comment,beta=args.beta)
         case 'test':
             # 10.4. Load the trained model and evaluate it on the Validation Set
             try:
