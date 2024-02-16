@@ -18,8 +18,8 @@ from eval import evaluate_and_save_model
 from utils.aug import ExtNormalize
 # GLOBAL VARIABLES
 # Image mean of the Cityscapes dataset (used for normalization)
-MEAN_CS = torch.tensor([104.00698793, 116.66876762, 122.67891434])
-STD_CS = torch.tensor([1.0, 1.0, 1.0])
+MEAN = torch.tensor([104.00698793, 116.66876762, 122.67891434])
+STD = torch.tensor([1.0, 1.0, 1.0])
 # COMMAND LINE
 # python main.py --mode train_fda --dataset CROSS_DOMAIN --save_model_path trained_models\bea_fda --comment bea_fda --data_transformation 0 --batch_size 5 --num_workers 4 --optimizer adam --crop_height 526 --crop_width 957
 
@@ -99,8 +99,8 @@ def train_fda(args, model, optimizer, source_dataloader_train, target_dataloader
             # FDA.2. Subtract the mean image from the source and target images for normalization
             #t_source_data = t_source_data - mean_img
             #target_data = target_data - mean_img
-            t_source_data, _ = ExtNormalize(mean=MEAN_CS,std=STD_CS)(t_source_data,lbl=source_label)
-            target_data, _ = ExtNormalize(mean=MEAN_CS,std=STD_CS)(target_data, lbl=source_label)
+            t_source_data, _ = ExtNormalize(mean=MEAN,std=STD)(t_source_data,lbl=source_label)
+            target_data, _ = ExtNormalize(mean=MEAN,std=STD)(target_data, lbl=source_label)
 
             # FDA.3. Get the predictions for the source images
             with amp.autocast():
@@ -148,7 +148,7 @@ def train_fda(args, model, optimizer, source_dataloader_train, target_dataloader
                 writer.add_image('epoch%d/iter%d/predicted_labels' % (epoch, i), np.array(colorized_predictions), step, dataformats='HWC')
                 writer.add_image('epoch%d/iter%d/correct_labels' % (epoch, i), np.array(colorized_labels), step, dataformats='HWC')
                 writer.add_image('epoch%d/iter%d/original_data' % (epoch, i), np.array(original_source_data[0].detach().cpu(),dtype='uint8'), step, dataformats='CHW')
-                t_source_data = t_source_data + MEAN_CS[:, None, None].cuda()
+                t_source_data = t_source_data + MEAN[:, None, None].cuda()
                 writer.add_image('epoch%d/iter%d/stylized_data' % (epoch, i), np.array(t_source_data[0].detach().cpu(),dtype='uint8'), step, dataformats='CHW')
                 #writer.add_image('epoch%d/iter%d/predicted_labels_16' % (epoch, i), np.array(colorized_predictions_16), step, dataformats='HWC')
                 #writer.add_image('epoch%d/iter%d/predicted_labels_32' % (epoch, i), np.array(colorized_predictions_32), step, dataformats='HWC')
@@ -175,7 +175,7 @@ def train_fda(args, model, optimizer, source_dataloader_train, target_dataloader
         
         # 4.8. Evaluate the model on the validation set every {args.validation_step} epochs
         if epoch % args.validation_step == 0 and epoch != 0:
-            max_miou = evaluate_and_save_model(args, model, target_dataloader_val, writer, epoch, step, max_miou, mean=MEAN_CS, std=STD_CS)
+            max_miou = evaluate_and_save_model(args, model, target_dataloader_val, writer, epoch, step, max_miou, mean=MEAN, std=STD)
     
     # 5. Final Evaluation
-    max_miou = evaluate_and_save_model(args, model, target_dataloader_val, writer, epoch, step, max_miou, mean=MEAN_CS, std=STD_CS)
+    max_miou = evaluate_and_save_model(args, model, target_dataloader_val, writer, epoch, step, max_miou, mean=MEAN, std=STD)

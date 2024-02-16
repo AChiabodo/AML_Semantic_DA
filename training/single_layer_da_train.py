@@ -16,9 +16,9 @@ from datasets.cityscapes import CityScapes
 from utils.general import poly_lr_scheduler, save_ckpt, load_ckpt
 from eval import evaluate_and_save_model
 
-MEAN = torch.tensor([78.5516, 87.7790, 76.9834])
-STD = torch.tensor([47.5697, 48.2976, 47.6105])
-USE_SOFTMAX = True
+MEAN = torch.tensor([104.00698793, 116.66876762, 122.67891434])
+STD = torch.tensor([1.0, 1.0, 1.0])
+USE_SOFTMAX = False
 USE_LINEAR_LAMBDA = False
 
 def train_da(args, model, optimizer, source_dataloader_train, target_dataloader_train, target_dataloader_val, comment='', layer=0,starting_epoch=0,d_lr=0.001):

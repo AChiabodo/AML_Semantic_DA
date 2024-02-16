@@ -28,17 +28,10 @@ from training.fda_train import train_fda
 from eval import val
 
 # GLOBAL VARIABLES
-# Image mean of the GTA dataset (used for normalization)
-GTA_MEAN = torch.tensor([105.8735, 109.0072, 101.7702])
-GTA_STD = torch.tensor([56.2629, 55.8382, 55.4247])
-
 # Image mean of the Cityscapes dataset (used for normalization)
-MEAN_CS = torch.tensor([104.00698793, 116.66876762, 122.67891434])
-STD_CS = torch.tensor([1.0, 1.0, 1.0])
+MEAN = torch.tensor([104.00698793, 116.66876762, 122.67891434])
+STD = torch.tensor([1.0, 1.0, 1.0])
 
-# Image mean calculated on our dataset
-MEAN = torch.tensor([78.5516, 87.7790, 76.9834])
-STD = torch.tensor([47.5697, 48.2976, 47.6105])
 """
   LAST TRAINING TRIALS:
 
@@ -141,7 +134,7 @@ def parse_args():
     )
     parse.add_argument('--num_workers',
                        type=int,
-                       default=4,
+                       default=2,
                        help='Number of threads used to load the data during training'
     )
     parse.add_argument('--num_classes',
@@ -261,14 +254,14 @@ def main():
                 """FDA does not need Normalization before the Fourier Transform"""
                 transformations = ExtCompose([ExtResize((512,1024)), ExtToTensor()])
                 target_transformations = transformations
-                eval_transformations = ExtCompose([ExtResize((512,1024)), ExtToTensor(),ExtNormalize(mean=MEAN_CS,std=torch.tensor([1.0,1.0,1.0]))])
+                eval_transformations = ExtCompose([ExtResize((512,1024)), ExtToTensor(),ExtNormalize(mean=MEAN,std=torch.tensor([1.0,1.0,1.0]))])
             elif args.mode == 'save_pseudo':
-                target_transformations = ExtCompose([ExtResize((512,1024)), ExtToTensor(),ExtNormalize(mean=MEAN_CS,std=torch.tensor([1.0,1.0,1.0]))])
+                target_transformations = ExtCompose([ExtResize((512,1024)), ExtToTensor(),ExtNormalize(mean=MEAN,std=torch.tensor([1.0,1.0,1.0]))])
             elif args.dataset == 'CROSS_DOMAIN':
                 """DA needs the same size for the images of the source and target domain and Normalization with the mean and std of the ImageNet dataset"""
-                transformations = ExtCompose([ExtResize((512,1024)), ExtToTensor(),ExtNormalize(mean=GTA_MEAN,std=GTA_STD)])
+                transformations = ExtCompose([ExtResize((512,1024)), ExtToTensor(),ExtNormalize(mean=MEAN,std=STD)])
                 target_transformations = transformations
-                eval_transformations = ExtCompose([ExtResize((512,1024)), ExtToTensor(), ExtNormalize(mean=GTA_MEAN,std=GTA_STD)])
+                eval_transformations = ExtCompose([ExtResize((512,1024)), ExtToTensor(), ExtNormalize(mean=MEAN,std=STD)])
             
         case 1:
             """
@@ -296,7 +289,7 @@ def main():
                 ExtToTensor()],
                 [ExtResize((512,1024)), ExtToTensor()])
                 target_transformations = transformations
-                eval_transformations = ExtCompose([ExtResize((512,1024)), ExtToTensor(),ExtNormalize(mean=MEAN_CS,std=torch.tensor([1.0,1.0,1.0]))])
+                eval_transformations = ExtCompose([ExtResize((512,1024)), ExtToTensor(),ExtNormalize(mean=MEAN,std=torch.tensor([1.0,1.0,1.0]))])
 
         case 2:
             """
@@ -329,8 +322,7 @@ def main():
                 ExtToTensor()],
                 [ExtResize((512,1024)), ExtToTensor()])
                 target_transformations = transformations
-                eval_transformations = ExtCompose([ExtResize((512,1024)), ExtToTensor(),ExtNormalize(mean=MEAN_CS,std=torch.tensor([1.0,1.0,1.0]))])
-
+                eval_transformations = ExtCompose([ExtResize((512,1024)), ExtToTensor(),ExtNormalize(mean=MEAN,std=torch.tensor([1.0,1.0,1.0]))])
 
     # 3. Datasets Selection
     
