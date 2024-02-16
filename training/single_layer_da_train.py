@@ -4,7 +4,6 @@ import torch.cuda.amp as amp
 import numpy as np
 from tqdm import tqdm
 import random
-import os
 from tensorboardX import SummaryWriter
 
 # PERSONAL
@@ -16,7 +15,7 @@ from datasets.cityscapes import CityScapes
 from utils.general import poly_lr_scheduler, save_ckpt, load_ckpt
 from eval import evaluate_and_save_model
 
-MEAN = torch.tensor([104.00698793, 116.66876762, 122.67891434])
+MEAN = torch.tensor([0.0, 0.0, 0.0])
 STD = torch.tensor([1.0, 1.0, 1.0])
 USE_SOFTMAX = False
 USE_LINEAR_LAMBDA = False
@@ -126,7 +125,7 @@ def train_da(args, model, optimizer, source_dataloader_train, target_dataloader_
             with amp.autocast():
                 
                 # TG.2.1. Forward pass -> multi-scale outputs
-                s_output, s_out16, s_out32 = model(source_data)
+                s_output, s_out16, s_out32 = model(softmax_func(source_data, dim=1))
                 
                 # TG.2.2. Compute the segmentation loss
                 loss1 = loss_func(s_output, source_label.squeeze(1))
@@ -142,7 +141,7 @@ def train_da(args, model, optimizer, source_dataloader_train, target_dataloader_
             with amp.autocast():
                 
                 # TG.4.1. Forward pass -> multi-scale outputs
-                t_output, t_out16, t_out32 = model(target_data)
+                t_output, t_out16, t_out32 = model(softmax_func(target_data, dim=1))
 
             optimizer.zero_grad()
             
@@ -236,8 +235,8 @@ def train_da(args, model, optimizer, source_dataloader_train, target_dataloader_
                 writer.add_image('epoch%d/iter%d/original_data' % (epoch, i), np.array(original_data.cpu(),dtype='uint8'), step, dataformats='CHW')
                 writer.add_image('epoch%d/iter%d/predicted_labels_16' % (epoch, i), np.array(colorized_predictions_16), step, dataformats='HWC')
                 writer.add_image('epoch%d/iter%d/predicted_labels_32' % (epoch, i), np.array(colorized_predictions_32), step, dataformats='HWC')
-                print(f"Source image mean: {source_data[0].mean()}")
-                print(f"Target image mean: {target_data[0].mean()}")
+                print(f"Source image mean: {softmax_func(source_data[0],dim=1).mean()}")
+                print(f"Target image mean: {softmax_func(target_data[0],dim=1).mean()}")
 
             # 4.5.4. Update the generator and the discriminator
             #scaler.step(optimizer)
@@ -276,7 +275,7 @@ def train_da(args, model, optimizer, source_dataloader_train, target_dataloader_
 
         # 4.9. Evaluate the model on the validation set every {args.validation_step} epochs
         if epoch % args.validation_step == 0 and epoch != 0:
-            max_miou = evaluate_and_save_model(args, model, target_dataloader_val, writer, epoch, step, max_miou,mean=MEAN,std=STD)
+            max_miou = evaluate_and_save_model(args, model, target_dataloader_val, writer, epoch, step, max_miou,mean=MEAN,std=STD,use_softmax=False)
     
     # 5. Final Evaluation
-    max_miou = evaluate_and_save_model(args, model, target_dataloader_val, writer, epoch, step, max_miou,mean=MEAN,std=STD)
+    max_miou = evaluate_and_save_model(args, model, target_dataloader_val, writer, epoch, step, max_miou,mean=MEAN,std=STD,use_softmax=False)
