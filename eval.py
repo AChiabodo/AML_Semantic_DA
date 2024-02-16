@@ -13,7 +13,7 @@ from utils.general import reverse_one_hot, compute_global_accuracy, fast_hist, p
 MEAN_ImageNet = torch.tensor([0.485, 0.456, 0.406])
 STD_ImageNet = torch.tensor([0.229, 0.224, 0.225])
 
-def val(args, model, dataloader, writer = None , epoch = None, step = None, mean = MEAN_ImageNet, std = STD_ImageNet, use_softmax = False):
+def val(args, model, dataloader, writer = None , epoch = None, step = None, mean = MEAN_ImageNet, std = STD_ImageNet):
     """
     Evaluate the current model on the validation set by computing:
     - Precision per pixel
@@ -26,7 +26,6 @@ def val(args, model, dataloader, writer = None , epoch = None, step = None, mean
     - step: Current training step.
     """
     print('start val!')
-    softmax_func = torch.nn.functional.softmax if use_softmax else lambda x, dim: x
     with torch.no_grad(): # No need to track the gradients during validation
 
         # 1. Initialization of evaluation metrics
@@ -46,7 +45,7 @@ def val(args, model, dataloader, writer = None , epoch = None, step = None, mean
             label = label.long().cuda()
 
             # 3.2. Forward pass -> original scale output
-            predict, _, _ = model(softmax_func(data,dim=1))
+            predict, _, _ = model(data)
             
             # 3.3. Save the randomly selected image to Tensorboard
             if i == random_sample and writer is not None:
@@ -94,7 +93,7 @@ def evaluate_and_save_model(args, model, dataloader_val, writer, epoch, step, ma
     Returns:
     - Updated max_miou after evaluation.
     """
-    precision, miou = val(args, model, dataloader_val, writer, epoch, step, mean, std, use_softmax)
+    precision, miou = val(args, model, dataloader_val, writer, epoch, step, mean, std)
     if miou > max_miou:
         max_miou = miou
         os.makedirs(args.save_model_path, exist_ok=True)
