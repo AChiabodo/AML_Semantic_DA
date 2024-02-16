@@ -3,8 +3,6 @@ import os
 from collections import namedtuple
 import random
 from typing import Any, Callable, Dict, List, Optional, Tuple, Union
-
-
 from PIL import Image
 from utils.aug import ExtResize, ExtToTensor, ExtTransforms , ExtCompose
 from torchvision.datasets.utils import iterable_to_str, verify_str_arg
@@ -61,6 +59,8 @@ class CityScapes(VisionDataset):
     train_id_to_color = np.array(train_id_to_color)
     id_to_train_id = np.array([c.train_id for c in classes])
     id_to_color = np.array([c.color for c in classes])
+
+    
     def __init__(
         self,
         root: str = "dataset",
@@ -71,17 +71,27 @@ class CityScapes(VisionDataset):
         target_transform: Optional[Callable] = None,
         transforms: Optional[ExtTransforms] = None,
     ) -> None:
+        
         super().__init__(root, transforms, transform, target_transform)
         print("root: ", root)
-        self.mode = "gtFine" if mode == "fine" else "gtCoarse"
+
+        # 0. Set the mode for the dataset
+        self.mode = "gtFine" if mode == "fine" else "pseudo_label"
+
+        # 1. Set the directories for the images and the targets labels
         self.images_dir = os.path.join(self.root,"cityscapes","images",split)
         self.targets_dir = os.path.join(self.root,"cityscapes", self.mode, split)
+        if mode == "pseudo":
+            self.targets_dir = os.path.join(self.root,"cityscapes", self.mode)
+
+        # 2. Initialize the variables for the dataset
         self.target_type = target_type
         self.split = split
         self.images = []
         self.targets = []
 
-        verify_str_arg(mode, "mode", ("fine", "coarse"))
+        # 3. Verify the input arguments
+        verify_str_arg(mode, "mode", ("fine", "coarse", "pseudo"))
         if mode == "fine":
             valid_modes = ("train", "test", "val")
         else:
@@ -97,6 +107,7 @@ class CityScapes(VisionDataset):
             for value in self.target_type
         ]
 
+        # 4. Load the images and the targets
         for city in os.listdir(self.images_dir):
             img_dir = os.path.join(self.images_dir, city)
             target_dir = os.path.join(self.targets_dir, city)
