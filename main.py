@@ -221,7 +221,7 @@ def parse_args():
     )
     parse.add_argument('--save_pseudo_path',
                         type=str,
-                        default='dataset\\Cityscapes\\pseudo_labels',
+                        default='dataset\\Cityscapes\\pseudo_label',
                         help='Path to the folder where to save the pseudo labels generated using Multi-band Transfer'
     )
     return parse.parse_args()
