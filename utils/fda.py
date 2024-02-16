@@ -242,7 +242,7 @@ def save_pseudo(args, target_dataloader_train,
               path_b1 = 'trained_models\\test_norm_fda_0.01\\best.pth',
               path_b2 = 'trained_models\\test_norm_fda_0.05\\best.pth',
               path_b3 = 'trained_models\\test_norm_fda_0.09\\best.pth',
-              save_path = 'dataset\\Cityscapes\\pseudo_labels'
+              save_path = 'dataset\\Cityscapes\\pseudo_label'
             ):
     """
       Pseudo-labels Generation for Self-Learning
