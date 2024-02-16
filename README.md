@@ -66,9 +66,7 @@ This repository contains the code of our project for the course "Advanced Machin
 
     - > A - Implement a fast image-to-image translation algorithm like FDA.
     
-      Apply FDA to enhance the GTA5 training images, i.e. swap the low-frequency components of the Fourier amplitude spectra of the source and target images.
-
-      - *beta* controls the size of the low frequency window to be replaced.
+      Apply FDA to enhance the GTA5 training images, i.e. swap the low-frequency components of the Fourier amplitude spectra of the source and target images. The parameter *beta* controls the size of the low frequency window to be replaced.
 
       Train the model with labeled enhanced synthetic data from GTA5 and unlabelled real-world data from Cityscapes (semi-supervised learning). Evaluate the model on the validation set of Cityscapes. 
       
@@ -80,8 +78,7 @@ This repository contains the code of our project for the course "Advanced Machin
 
     - > C - Implement a self-learning approach.
 
-      Generate pseudo-labels for the training set of Cityscapes using the predictions of the model adapted with MBT.
-        - To avoid overfitting, filter out the low-confidence predictions.
+      Generate pseudo-labels for the training set of Cityscapes using the predictions of the model adapted with MBT. To avoid overfitting, filter out the low-confidence predictions.
 
       Train the model with labeled synthetic data from GTA5 and pseudo-labeled real-world data from Cityscapes.
       
