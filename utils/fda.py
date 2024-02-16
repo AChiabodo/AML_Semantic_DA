@@ -312,9 +312,6 @@ def save_pseudo(args, target_dataloader_train,
 
       # 3. Iterate over the validation dataset
       for i, (data, label) in enumerate(target_dataloader_train):
-          
-          if i > 1:
-              break
 
           # 3.1. Load data and label to GPU
           label = label.type(torch.LongTensor)

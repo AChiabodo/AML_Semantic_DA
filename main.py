@@ -422,10 +422,10 @@ def main():
             train(args, model, optimizer, source_dataloader_train, dataloader_val, comment=args.comment)
         case 'train_da':
             # 10.2. Training with Domain Adaptation
-            train_da(args, model, optimizer, source_dataloader_train, target_dataloader_train, dataloader_val, comment=args.comment,d_lr=args.d_lr)
+            train_da(args, model, optimizer, source_dataloader_train, target_dataloader_train, dataloader_val, comment=args.comment, d_lr=args.d_lr)
         case 'train_fda':
             # 10.3. Training with Fourier Domain Adaptation
-            train_fda(args, model, optimizer, source_dataloader_train, target_dataloader_train, dataloader_val, comment=args.comment,beta=args.beta)
+            train_fda(args, model, optimizer, source_dataloader_train, target_dataloader_train, dataloader_val, comment=args.comment, beta=args.beta)
         case 'test_mbt':
             # 10.4. Testing the already trained FDA models using Multi-band Transfer => MBT on the Validation Set of Cityscapes
             test_mbt(args, dataloader_val, path_b1=args.fda_b1_path, path_b2=args.fda_b2_path, path_b3=args.fda_b3_path)
@@ -434,9 +434,9 @@ def main():
             save_pseudo(args, target_dataloader_train, path_b1=args.fda_b1_path, path_b2=args.fda_b2_path, path_b3=args.fda_b3_path, save_path=args.save_pseudo_path)
         case 'self_learning':
             # 10.6. Training with Self-Learning FDA and Pseudo Labels
-            train_self_learning_fda(args, model, optimizer, source_dataloader_train, target_dataloader_train, dataloader_val, comment=args.comment,beta=args.beta)
+            train_self_learning_fda(args, model, optimizer, source_dataloader_train, target_dataloader_train, dataloader_val, comment=args.comment, beta=args.beta)
         case 'test':
-            # 10.4. Load the trained model and evaluate it on the Validation Set
+            # 10.7. Load the trained model and evaluate it on the Validation Set
             try:
                 load_ckpt(args, model=model)
                 print('successfully resume model from %s' % args.resume_model_path)
