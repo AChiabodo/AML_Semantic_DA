@@ -146,9 +146,9 @@ class EntropyMinimizationLoss(nn.Module):
 # MBT ADAPTATION #
 ##################
 def test_mbt(args, dataloader_val,
-              path_b1 = 'trained_models\\test_norm_fda_0.01\\best.pth',
-              path_b2 = 'trained_models\\test_norm_fda_0.05\\best.pth',
-              path_b3 = 'trained_models\\test_norm_fda_0.09\\best.pth'
+              path_b1 = 'trained_models\\selflearn_fda0.01\\best.pth',
+              path_b2 = 'trained_models\\selflearn_fda0.05\\best.pth',
+              path_b3 = 'trained_models\\selflearn_fda0.09\\best.pth'
             ):
     """
       Evaluation of the Segmentation Networks Adapted with Multi-band Transfer (multiple betas)

@@ -17,7 +17,7 @@ from eval import evaluate_and_save_model
 
 MEAN = torch.tensor([0.0, 0.0, 0.0])
 STD = torch.tensor([1.0, 1.0, 1.0])
-USE_SOFTMAX = False
+USE_SOFTMAX = True
 USE_LINEAR_LAMBDA = False
 
 def train_da(args, model, optimizer, source_dataloader_train, target_dataloader_train, target_dataloader_val, comment='', layer=0,starting_epoch=0,d_lr=0.001):
@@ -125,7 +125,7 @@ def train_da(args, model, optimizer, source_dataloader_train, target_dataloader_
             with amp.autocast():
                 
                 # TG.2.1. Forward pass -> multi-scale outputs
-                s_output, s_out16, s_out32 = model(softmax_func(source_data, dim=1))
+                s_output, s_out16, s_out32 = model(source_data)
                 
                 # TG.2.2. Compute the segmentation loss
                 loss1 = loss_func(s_output, source_label.squeeze(1))
@@ -141,7 +141,7 @@ def train_da(args, model, optimizer, source_dataloader_train, target_dataloader_
             with amp.autocast():
                 
                 # TG.4.1. Forward pass -> multi-scale outputs
-                t_output, t_out16, t_out32 = model(softmax_func(target_data, dim=1))
+                t_output, t_out16, t_out32 = model(target_data)
 
             optimizer.zero_grad()
             
@@ -275,7 +275,7 @@ def train_da(args, model, optimizer, source_dataloader_train, target_dataloader_
 
         # 4.9. Evaluate the model on the validation set every {args.validation_step} epochs
         if epoch % args.validation_step == 0 and epoch != 0:
-            max_miou = evaluate_and_save_model(args, model, target_dataloader_val, writer, epoch, step, max_miou,mean=MEAN,std=STD,use_softmax=False)
+            max_miou = evaluate_and_save_model(args, model, target_dataloader_val, writer, epoch, step, max_miou,mean=MEAN,std=STD)
     
     # 5. Final Evaluation
-    max_miou = evaluate_and_save_model(args, model, target_dataloader_val, writer, epoch, step, max_miou,mean=MEAN,std=STD,use_softmax=False)
+    max_miou = evaluate_and_save_model(args, model, target_dataloader_val, writer, epoch, step, max_miou,mean=MEAN,std=STD)

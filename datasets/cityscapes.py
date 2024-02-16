@@ -82,14 +82,19 @@ class CityScapes(VisionDataset):
         self.images_dir = os.path.join(self.root,"cityscapes","images",split)
         self.targets_dir = os.path.join(self.root,"cityscapes", self.mode, split)
         
-        if mode == "pseudo":
+        if self.mode == "pseudo_label":
+
+            print('Targeting pseudo labels.')
 
             # 1.1. Get the targets dir for the pseudo labels
             self.targets_dir = os.path.join(self.root,"cityscapes", self.mode)
 
             # 1.2. Verify that the directories contain as many images as the true target labels dir
             msg = "The number of images and target labels does not match"
-            true_targets_dir = os.path.join(self.root,"cityscapes", self.mode, split)
+            true_targets_dir = self.targets_dir#os.path.join(self.root,"cityscapes", self.mode, split)
+
+            print(true_targets_dir)
+
             assert len(os.listdir(self.images_dir)) == len(os.listdir(true_targets_dir)), msg   
 
         # 2. Initialize the variables for the dataset

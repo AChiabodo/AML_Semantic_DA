@@ -54,6 +54,7 @@ Used Training Commands:
     Augm-2: main.py --dataset CROSS_DOMAIN --data_transformations 2 --batch_size 10 --learning_rate 0.01 --num_epochs 50 --save_model_path trained_models\test_augm2_gta --resume False --comment test_augm2 --mode train --num_workers 4 --optimizer sgd
     DA    : main.py --dataset CROSS_DOMAIN --data_transformations 0 --batch_size 6 --learning_rate 0.01 --num_epochs 50 --save_model_path trained_models\norm_da --resume False --comment norm_da --mode train_da --num_workers 4 --optimizer sgd --d_lr 0.001
     FDA   : main.py --dataset CROSS_DOMAIN --data_transformations 0 --batch_size 5 --learning_rate 0.01 --num_epochs 50 --save_model_path trained_models\test_norm_fda --resume False --comment test_norm_fda --mode train_fda --num_workers 4 --optimizer sgd
+    SL    : main.py --dataset CROSS_DOMAIN --data_transformations 0 --batch_size 5 --learning_rate 0.01 --num_epochs 50 --save_model_path trained_models\selflearn_fda0.01 --resume False --comment selflearn_fda0.01 --mode self_learning --num_workers 4 --optimizer sgd --beta 0.01
     
 
     MBT  : main.py --mode test_mbt --dataset CROSS_DOMAIN
@@ -136,7 +137,7 @@ def parse_args():
     )
     parse.add_argument('--num_workers',
                        type=int,
-                       default=2,
+                       default=4,
                        help='Number of threads used to load the data during training'
     )
     parse.add_argument('--num_classes',
@@ -206,17 +207,17 @@ def parse_args():
     )
     parse.add_argument('--fda_b1_path',
                         type=str,
-                        default='trained_models\\test_norm_fda_0.01\\best.pth',
+                        default='trained_models\\selflearn_fda0.01\\best.pth',
                         help='Path to the model trained with beta=0.01'
     )
     parse.add_argument('--fda_b2_path',
                         type=str,
-                        default='trained_models\\test_norm_fda_0.05\\best.pth',
+                        default='trained_models\\selflearn_fda0.05\\best.pth',
                         help='Path to the model trained with beta=0.05'
     )
     parse.add_argument('--fda_b3_path',
                         type=str,
-                        default='trained_models\\test_norm_fda_0.09\\best.pth',
+                        default='trained_models\\selflearn_fda0.09\\best.pth',
                         help='Path to the model trained with beta=0.09'
     )
     parse.add_argument('--save_pseudo_path',
