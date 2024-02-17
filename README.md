@@ -86,7 +86,7 @@ This repository contains the code of our project for the course "Advanced Machin
 
       Evaluate the model on the validation set of Cityscapes.
 
-## Command line arguments
+## Commands and Results
 
 4. **IMPROVEMENTS - option c**
     - A - Implement a fast image-to-image translation algorithm like FDA.
@@ -103,28 +103,34 @@ This repository contains the code of our project for the course "Advanced Machin
       | 0.09 | xxxx           | xxxx       | xxxx                        |
     
     - B - Evaluate the performance of the Segmentation Network adapted with MBT.
-    ```bash
-    main.py --dataset CROSS_DOMAIN --mode test_mbt --fda_b1_path trained_models\norm_fda0.01\best.pth --fda_b2_path trained_models\norm_fda0.05\best.pth --fda_b3_path trained_models\norm_fda0.09\best.pth
-    ```
+      ```bash
+      main.py --dataset CROSS_DOMAIN --mode test_mbt --fda_b1_path trained_models\norm_fda0.01\best.pth --fda_b2_path trained_models\norm_fda0.05\best.pth --fda_b3_path trained_models\norm_fda0.09\best.pth
+      ```
+      | Accuracy _(%)_ | mIoU _(%)_ |
+      |----------------|------------|
+      | xxxx           | xxxx       |
     - C - Implement a self-learning approach.
-    ```bash
-    main.py --dataset CROSS_DOMAIN --data_transformation 0 --mode save_pseudo --fda_b1_path trained_models\norm_fda0.01\best.pth --fda_b2_path trained_models\norm_fda0.05\best.pth --fda_b3_path trained_models\norm_fda0.09\best.pth --save_pseudo_path dataset\Cityscapes\pseudo_label
-    ```
-    ```bash
-    main.py --dataset CROSS_DOMAIN --data_transformations 0 --batch_size 5 --learning_rate 0.01 --num_epochs 50 --save_model_path trained_models\selflearn_fda0.01 --resume False --comment selflearn_fda0.01 --mode self_learning --num_workers 4 --optimizer sgd --beta 0.01
-    ```
-    ```Python
-    # Train also with beta 0.05 and 0.09
-    ```
-    - D - Evaluate the performance of the Segmentation Network trained with self-learning adapted with an additional step of MBT.
-    ```bash
-    main.py --dataset CROSS_DOMAIN --mode test_mbt --fda_b1_path trained_models\selflearn_fda0.01\best.pth --fda_b2_path trained_models\selflearn_fda0.05\best.pth --fda_b3_path trained_models\selflearn_fda0.09\best.pth
-    ```
-   
+      ```bash
+      main.py --dataset CROSS_DOMAIN --data_transformation 0 --mode save_pseudo --fda_b1_path trained_models\norm_fda0.01\best.pth --fda_b2_path trained_models\norm_fda0.05\best.pth --fda_b3_path trained_models\norm_fda0.09\best.pth --save_pseudo_path dataset\Cityscapes\pseudo_label
+      ```
+      ![Alt text](image.png)
+      ```bash
+      main.py --dataset CROSS_DOMAIN --data_transformations 0 --batch_size 5 --learning_rate 0.01 --num_epochs 50 --save_model_path trained_models\selflearn_fda0.01 --resume False --comment selflearn_fda0.01 --mode self_learning --num_workers 4 --optimizer sgd --beta 0.01
+      ```
+      ```Python
+      # Train also with beta 0.05 and 0.09
+      ```
+      | beta | Accuracy _(%)_ | mIoU _(%)_ | Train Time (avg per-epochs) |
+      |------|----------------|------------|-----------------------------|
+      | 0.01 | xxxx           | xxxx       | xxxx                        |
+      | 0.05 | xxxx           | xxxx       | xxxx                        |
+      | 0.09 | xxxx           | xxxx       | xxxx                        |
 
-## Results
-4. **IMPROVEMENTS - option c**
-    - A - Implement a fast image-to-image translation algorithm like FDA.
-    - B - Evaluate the performance of the Segmentation Network adapted with MBT.
-    - C - Implement a self-learning approach.
     - D - Evaluate the performance of the Segmentation Network trained with self-learning adapted with an additional step of MBT.
+      ```bash
+      main.py --dataset CROSS_DOMAIN --mode test_mbt --fda_b1_path trained_models\selflearn_fda0.01\best.pth --fda_b2_path trained_models\selflearn_fda0.05\best.pth --fda_b3_path trained_models\selflearn_fda0.09\best.pth
+      ```
+      | Accuracy _(%)_ | mIoU _(%)_ |
+      |----------------|------------|
+      | xxxx           | xxxx       |
+   
