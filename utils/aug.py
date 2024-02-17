@@ -123,14 +123,20 @@ class V2RandomHorizontalFlip(ExtTransforms):
         return v2.RandomHorizontalFlip(p=self.p)(img), v2.RandomHorizontalFlip(p=self.p)(lbl)
     
 class V2Normalize(ExtTransforms):
-    def __init__(self, mean=[0.485, 0.456, 0.406],std=[0.229, 0.224, 0.225], scale=False):
+    def __init__(self, mean=[0.485, 0.456, 0.406],std=[0.229, 0.224, 0.225], scale=True):
         self.mean = mean
         self.std = std
         self.scale = scale
     def __call__(self, img, lbl):
-        if self.scale:
-            img = v2.ToDtype(dtype=torch.float32, scale=self.scale)(img)
+        img = v2.ToDtype(dtype=torch.float32, scale=self.scale)(img)
         return v2.Normalize(mean=self.mean, std=self.std)(img), lbl
+
+class V2DeNormalize(ExtTransforms):
+    def __init__(self, mean=[0.485, 0.456, 0.406],std=[0.229, 0.224, 0.225]):
+        self.mean = mean
+        self.std = std
+    def __call__(self, img, lbl):
+        return v2.Normalize(mean=[-m/s for m, s in zip(self.mean, self.std)], std=[1/s for s in self.std])(img), lbl
 
 ######################
 # TRANSFORMS CLASSES #
