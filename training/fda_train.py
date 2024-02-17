@@ -4,7 +4,6 @@ import torch.cuda.amp as amp
 import numpy as np
 from tqdm import tqdm
 import random
-import os
 from tensorboardX import SummaryWriter
 
 # PERSONAL
