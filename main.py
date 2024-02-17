@@ -44,7 +44,10 @@ STD = torch.tensor([1.0, 1.0, 1.0])
   --mode train --dataset CROSS_DOMAIN --save_model_path trained_models\bea_data_augm_test --comment bea_data_augm_test --data_transformation 2 --batch_size 5 --num_workers 4 --optimizer adam --crop_height 526 --crop_width 957
 
   & C:/Users/aless/Documents/Codice/AML_Semantic_DA/.venv/Scripts/python.exe c:/Users/aless/Documents/Codice/AML_Semantic_DA/main.py --dataset CROSS_DOMAIN --data_transformations 0 --batch_size 6 --learning_rate 0.01 --num_epochs 50 --save_model_path trained_models\norm_da --resume False --comment norm_da --mode train_da --num_workers 4 --optimizer sgd --d_lr 0.001
-"""
+
+  C:/Users/aless/Documents/Codice/AML_Semantic_DA/.venv/Scripts/python.exe c:/Users/aless/Documents/Codice/AML_Semantic_DA/main.py --dataset CROSS_DOMAIN --data_transformations 0 --batch_size 10 --learning_rate 0.01 --num_epochs 50 --save_model_path trained_models\norm_da_augm --resume False --comment norm_da_augm --mode train_da --num_workers 4 
+--optimizer sgd --d_lr 0.001  
+  """
 
 """
 Used Training Commands:
@@ -287,7 +290,7 @@ def main():
 
             if args.mode == 'train_fda' or args.mode == 'test_mbt' or args.mode == 'save_pseudo':
                 transformations = ExtRandomCompose([
-                ExtScale(random.choice([1,1.25,1.5,1.75,2]),interpolation=Image.Resampling.BILINEAR),
+                ExtScale(random.choice([0.75,1,1.25,1.5,1.75,2]),interpolation=Image.Resampling.BILINEAR),
                 ExtRandomCrop((args.crop_height, args.crop_width)),
                 ExtRandomHorizontalFlip(),
                 ExtToTensor()],
@@ -307,26 +310,26 @@ def main():
             """
             transformations = ExtRandomCompose([
                 ExtScale(random.choice([1.25,1.5,1.75,2]),interpolation=Image.Resampling.BILINEAR),
-                ExtRandomCrop((args.crop_height, args.crop_width)),
+                ExtRandomCrop((512,1024)),
                 ExtRandomHorizontalFlip(),
                 ExtGaussianBlur(p=0.5, radius=1),
                 ExtColorJitter(p=0.5, brightness=0.2, contrast=0.1, saturation=0.1, hue=0.2),
                 ExtToTensor(),
                 ExtNormalize(mean=MEAN,std=STD)],
                 [ExtResize((512,1024)), ExtToTensor(),ExtNormalize(mean=MEAN,std=STD)])
-            target_transformations = standard_transformations
-
+            target_transformations = transformations
+            eval_transformations = ExtCompose([ExtResize((512,1024)), ExtToTensor(),ExtNormalize(mean=MEAN,std=STD)])
             if args.mode == 'train_fda' or args.mode == 'test_mbt' or args.mode == 'save_pseudo':
                 transformations = ExtRandomCompose([
                 ExtScale(random.choice([1.25,1.5,1.75,2]),interpolation=Image.Resampling.BILINEAR),
-                ExtRandomCrop((args.crop_height, args.crop_width)),
+                ExtRandomCrop((512,1024)),
                 ExtRandomHorizontalFlip(),
                 ExtGaussianBlur(p=0.5, radius=1),
                 ExtColorJitter(p=0.5, brightness=0.2, contrast=0.1, saturation=0.1, hue=0.2),
                 ExtToTensor()],
                 [ExtResize((512,1024)), ExtToTensor()])
                 target_transformations = transformations
-                eval_transformations = ExtCompose([ExtResize((512,1024)), ExtToTensor(),ExtNormalize(mean=MEAN,std=torch.tensor([1.0,1.0,1.0]))])
+                eval_transformations = ExtCompose([ExtResize((512,1024)), ExtToTensor(),ExtNormalize(mean=MEAN,std=STD)])
 
     # 3. Datasets Selection
     
