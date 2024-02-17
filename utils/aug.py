@@ -33,7 +33,7 @@ import numpy as np
 import random
 import numbers
 from typing import Optional, List
-from torchvision.transforms import Normalize
+from torchvision.transforms import Normalize, v2
 
 ##############
 # BASE CLASS #
@@ -103,6 +103,34 @@ class ExtToTensor(ExtTransforms):
     def __call__(self, pic : Image, lbl : Image) -> (torch.Tensor, torch.Tensor):
         return torch.from_numpy( np.array( pic, dtype=np.float32).transpose(2, 0, 1) ), torch.from_numpy( np.array( lbl, dtype=self.target_type) )
 
+class ExtToV2Tensor(ExtTransforms):
+    def __init__(self):
+        pass
+    def __call__(self, img, lbl):
+        return v2.ToImage()(img), v2.ToImage()(lbl)
+    
+class V2Resize(ExtTransforms):
+    def __init__(self, size, interpolation=Image.BILINEAR):
+        self.size = size
+        self.interpolation = interpolation
+    def __call__(self, img, lbl):
+        return v2.Resize(size=self.size, interpolation=self.interpolation)(img), v2.Resize(size=self.size, interpolation=Image.NEAREST)(lbl)
+
+class V2RandomHorizontalFlip(ExtTransforms):
+    def __init__(self, p=0.5):
+        self.p = p
+    def __call__(self, img, lbl):
+        return v2.RandomHorizontalFlip(p=self.p)(img), v2.RandomHorizontalFlip(p=self.p)(lbl)
+    
+class V2Normalize(ExtTransforms):
+    def __init__(self, mean=[0.485, 0.456, 0.406],std=[0.229, 0.224, 0.225], scale=False):
+        self.mean = mean
+        self.std = std
+        self.scale = scale
+    def __call__(self, img, lbl):
+        if self.scale:
+            img = v2.ToDtype(dtype=torch.float32, scale=self.scale)(img)
+        return v2.Normalize(mean=self.mean, std=self.std)(img), lbl
 
 ######################
 # TRANSFORMS CLASSES #
@@ -157,12 +185,13 @@ class ExtNormalize(ExtTransforms):
     - mean: Mean image to be subtracted. Default is the ImageNet mean.
     """
 
-    def __init__(self, mean=[0.485, 0.456, 0.406],std=[0.229, 0.224, 0.225]):
+    def __init__(self, mean=[0.485, 0.456, 0.406],std=[0.229, 0.224, 0.225], scale=False):
         self.mean = mean
         self.std = std
+        self.toTensor = v2.ToDtype(dtype=torch.float32, scale=scale)
 
     def __call__(self, img : Image, lbl : Image) -> (Image, Image):
-        
+        img = self.toTensor(img)
         return Normalize(mean=self.mean, std=self.std)(img), lbl
 
 # Crop

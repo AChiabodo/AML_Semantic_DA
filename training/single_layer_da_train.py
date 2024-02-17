@@ -15,8 +15,8 @@ from datasets.cityscapes import CityScapes
 from utils.general import poly_lr_scheduler, save_ckpt, load_ckpt
 from eval import evaluate_and_save_model
 
-MEAN = torch.tensor([0.0, 0.0, 0.0])
-STD = torch.tensor([1.0, 1.0, 1.0])
+MEAN = torch.tensor([0.485, 0.456, 0.406])
+STD = torch.tensor([0.229, 0.224, 0.225])
 USE_SOFTMAX = True
 USE_LINEAR_LAMBDA = False
 
@@ -71,7 +71,7 @@ def train_da(args, model, optimizer, source_dataloader_train, target_dataloader_
 
     # 3. Loss Functions
     loss_func = torch.nn.CrossEntropyLoss(ignore_index=255)
-    #discr_loss_func = torch.nn.MSELoss()
+    
     discr_loss_func = torch.nn.BCEWithLogitsLoss()
     
     # 4. Training Loop for each epoch
@@ -175,7 +175,7 @@ def train_da(args, model, optimizer, source_dataloader_train, target_dataloader_
             scaler.scale(d_loss).backward()
             scaler.step(optimizer)
             scaler.update()
-            #optimizer.zero_grad()
+
             #######################
             # Train Discriminator #
             #######################
@@ -225,23 +225,16 @@ def train_da(args, model, optimizer, source_dataloader_train, target_dataloader_
             # 4.5.3. Save the randomly selected image in the batch to tensorboard
             if i == image_number and epoch % 2 == 0: #saves the first image in the batch to tensorboard
                 print('epoch {}, iter {}, loss1: {}, loss2: {}, loss3: {}, d_loss_fool: {}, d_loss: {}'.format(epoch, i, loss1, loss2, loss3, d_loss, sd_loss+td_loss))
-                colorized_predictions , colorized_labels = CityScapes.visualize_prediction(s_output, source_label)
-                colorized_predictions_16 , _ = CityScapes.visualize_prediction(s_out16, source_label)
-                colorized_predictions_32 , _ = CityScapes.visualize_prediction(s_out32, source_label)
+                colorized_predictions , colorized_labels = CityScapes.visualize_prediction(s_output, source_label.squeeze(1))
+                colorized_predictions_16 , _ = CityScapes.visualize_prediction(s_out16, source_label.squeeze(1))
+                colorized_predictions_32 , _ = CityScapes.visualize_prediction(s_out32, source_label.squeeze(1))
 
                 writer.add_image('epoch%d/iter%d/predicted_labels' % (epoch, i), np.array(colorized_predictions), step, dataformats='HWC')
                 writer.add_image('epoch%d/iter%d/correct_labels' % (epoch, i), np.array(colorized_labels), step, dataformats='HWC')
-                original_data = source_data[0].cpu()* STD[:, None, None] + MEAN[:, None, None]
-                writer.add_image('epoch%d/iter%d/original_data' % (epoch, i), np.array(original_data.cpu(),dtype='uint8'), step, dataformats='CHW')
+                original_data = source_data[0].detach().cpu()* STD[:, None, None] + MEAN[:, None, None]
+                writer.add_image('epoch%d/iter%d/original_data' % (epoch, i), np.array(original_data,dtype='uint8'), step, dataformats='CHW')
                 writer.add_image('epoch%d/iter%d/predicted_labels_16' % (epoch, i), np.array(colorized_predictions_16), step, dataformats='HWC')
                 writer.add_image('epoch%d/iter%d/predicted_labels_32' % (epoch, i), np.array(colorized_predictions_32), step, dataformats='HWC')
-                print(f"Source image mean: {softmax_func(source_data[0],dim=1).mean()}")
-                print(f"Target image mean: {softmax_func(target_data[0],dim=1).mean()}")
-
-            # 4.5.4. Update the generator and the discriminator
-            #scaler.step(optimizer)
-            #scaler.step(discr_optim)
-            #scaler.update()
 
             # 4.5.5. Compute the total loss for the batch
             tot_g_loss = loss + d_loss # Generator's total loss

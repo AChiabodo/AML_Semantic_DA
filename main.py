@@ -9,7 +9,6 @@ import argparse
 import random
 import os
 from tensorboardX import SummaryWriter
-import numpy as np
 # PERSONAL
 # Models
 from model.model_stages import BiSeNet
