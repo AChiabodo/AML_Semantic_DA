@@ -41,7 +41,7 @@ This repository contains the code of our project for the course "Advanced Machin
 - The two datasets are not included in the repository, but they can be downloaded from [datasets_drive_link](https://drive.google.com/drive/u/0/folders/1iE8wJT7tuDOVjEBZ7A3tOPZmNdroqG1m).
 - The pre-trained weights for STDCNet813 are available at [stdcnet_drive_link](https://drive.google.com/drive/folders/1wROFwRt8qWHD4jSo8Zu1gp1d6oYJ3ns1).
 
-## Steps
+## Steps and Results
 1. **RELATED WORKS** - Read the papers and understand the methods.
 2. **TESTING REAL-TIME SEMANTIC SEGMENTATION**
     - > A - Define the upper bound for the domain adaptation phase.
@@ -63,33 +63,7 @@ This repository contains the code of our project for the course "Advanced Machin
 3. **IMPLEMENTING UNSUPERVISED ADVERSARIAL DOMAIN ADAPTATION** - Perform adversarial training with labeled synthetic data (GTA5) and unlabelled real-world data (Cityscapes). Evaluate the model on the validation set of Cityscapes.
 
 4. **IMPROVEMENTS - option c**
-
     - > A - Implement a fast image-to-image translation algorithm like FDA.
-    
-      Apply FDA to enhance the GTA5 training images, i.e. swap the low-frequency components of the Fourier amplitude spectra of the source and target images. The parameter *beta* controls the size of the low frequency window to be replaced.
-
-      Train the model with labeled enhanced synthetic data from GTA5 and unlabelled real-world data from Cityscapes (semi-supervised learning). Evaluate the model on the validation set of Cityscapes. 
-      
-    - > B - Evaluate the performance of the Segmentation Network adapted with MBT.
-
-      Multi-band Transfer consists in using the mean prediction of different segmentation networks trained with different spectral domain sizes (betas).
-
-      Evaluate the model on the validation set of Cityscapes.
-
-    - > C - Implement a self-learning approach.
-
-      Generate pseudo-labels for the training set of Cityscapes using the predictions of the model adapted with MBT. To avoid overfitting, filter out the low-confidence predictions.
-
-      Train the model with labeled synthetic data from GTA5 and pseudo-labeled real-world data from Cityscapes. Evaluate the model on the validation set of Cityscapes.
-
-    - > D - Evaluate the performance of the Segmentation Network trained with self-learning adapted with an additional step of MBT.
-
-      Evaluate the model on the validation set of Cityscapes.
-
-## Commands and Results
-
-4. **IMPROVEMENTS - option c**
-    - **A - Implement a fast image-to-image translation algorithm like FDA.**
 
       Apply FDA to enhance the GTA5 training images, i.e. swap the low-frequency components of the Fourier amplitude spectra of the source and target images. The parameter *beta* controls the size of the low frequency window to be replaced.
 
@@ -108,11 +82,11 @@ This repository contains the code of our project for the course "Advanced Machin
       ```
       | beta | Accuracy _(%)_ | mIoU _(%)_ | Train Time (avg per-epochs) |
       |------|----------------|------------|-----------------------------|
-      | 0.01 | xxxx           | xxxx       | xxxx                        |
-      | 0.05 | xxxx           | xxxx       | xxxx                        |
-      | 0.09 | xxxx           | xxxx       | xxxx                        |
+      | 0.01 | 68.1           | 25.7       | 1:40                        |
+      | 0.05 | 68.5           | 26.5       | 1:42                        |
+      | 0.09 | 71.6           | 27.6       | 1:40                        |
     
-    - **B - Evaluate the performance of the Segmentation Network adapted with MBT.**
+    - > B - Evaluate the performance of the Segmentation Network adapted with MBT.
       
       Multi-band Transfer consists in using the mean prediction of different segmentation networks trained with different spectral domain sizes (betas).
 
@@ -124,9 +98,9 @@ This repository contains the code of our project for the course "Advanced Machin
 
       | Accuracy _(%)_ | mIoU _(%)_ |
       |----------------|------------|
-      | xxxx           | xxxx       |
+      | 72.5           | 30.1       |
 
-    - **C - Implement a self-learning approach.**
+    - > C - Implement a self-learning approach.
 
       Generate pseudo-labels for the training set of Cityscapes using the predictions of the model adapted with MBT. To avoid overfitting, filter out the low-confidence predictions.
 
@@ -148,11 +122,11 @@ This repository contains the code of our project for the course "Advanced Machin
       ```
       | beta | Accuracy _(%)_ | mIoU _(%)_ | Train Time (avg per-epochs) |
       |------|----------------|------------|-----------------------------|
-      | 0.01 | xxxx           | xxxx       | xxxx                        |
-      | 0.05 | xxxx           | xxxx       | xxxx                        |
-      | 0.09 | xxxx           | xxxx       | xxxx                        |
+      | 0.01 | 73.0           | 32.0       | 1:40                        |
+      | 0.05 | 73.1           | 32.0       | 1:41                        |
+      | 0.09 | 73.8           | 31.5       | 1:40                        |
 
-    - **D - Evaluate the performance of the Segmentation Network trained with self-learning adapted with an additional step of MBT.**
+    - > D - Evaluate the performance of the Segmentation Network trained with self-learning adapted with an additional step of MBT.
 
       Evaluate the model on the validation set of Cityscapes.
 
@@ -162,5 +136,5 @@ This repository contains the code of our project for the course "Advanced Machin
 
       | Accuracy _(%)_ | mIoU _(%)_ |
       |----------------|------------|
-      | xxxx           | xxxx       |
+      | 74.5           | 33.6       |
    
