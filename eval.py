@@ -49,7 +49,7 @@ def val(args, model, dataloader, writer = None , epoch = None, step = None, mean
             
             # 3.3. Save the randomly selected image to Tensorboard
             if i == random_sample and writer is not None:
-                colorized_predictions , colorized_labels = CityScapes.visualize_prediction(predict, label)
+                colorized_predictions , colorized_labels = CityScapes.visualize_prediction(predict, label.squeeze(0))
                 writer.add_image('eval%d/iter%d/predicted_eval_labels' % (epoch, i), np.array(colorized_predictions), step, dataformats='HWC')
                 writer.add_image('eval%d/iter%d/correct_eval_labels' % (epoch, i), np.array(colorized_labels), step, dataformats='HWC')
                 data = data.cpu() * std[:, None, None] + mean[:, None, None]
@@ -67,9 +67,6 @@ def val(args, model, dataloader, writer = None , epoch = None, step = None, mean
             # 3.6. Compute precision per pixel and update the confusion matrix
             precision = compute_global_accuracy(predict, label)
             hist += fast_hist(label.flatten(), predict.flatten(), args.num_classes)
-            # there is no need to transform the one-hot array to visual RGB array
-            # predict = colour_code_segmentation(np.array(predict), label_info)
-            # label = colour_code_segmentation(np.array(label), label_info)
             precision_record.append(precision)
             
         # 4. Compute metrics
@@ -97,7 +94,6 @@ def evaluate_and_save_model(args, model, dataloader_val, writer, epoch, step, ma
     if miou > max_miou:
         max_miou = miou
         os.makedirs(args.save_model_path, exist_ok=True)
-        #torch.save(model.module.state_dict(), os.path.join(args.save_model_path, 'best.pth'))
         save_ckpt(args=args,model=model,cur_epoch=epoch,best_score= max_miou,name='best.pth')
 
     writer.add_scalar('epoch/precision_val', precision, epoch)

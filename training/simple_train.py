@@ -14,8 +14,8 @@ from datasets.cityscapes import CityScapes
 from utils.general import poly_lr_scheduler, load_ckpt
 from eval import evaluate_and_save_model
 
-MEAN = torch.tensor([104.00698793, 116.66876762, 122.67891434])
-STD = torch.tensor([1.0, 1.0, 1.0])
+MEAN = torch.tensor([0.485, 0.456, 0.406])
+STD = torch.tensor([0.229, 0.224, 0.225])
 
 def train(args, model, optimizer, dataloader_train, dataloader_val, comment=''):
     """
