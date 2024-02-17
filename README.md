@@ -89,8 +89,14 @@ This repository contains the code of our project for the course "Advanced Machin
 ## Commands and Results
 
 4. **IMPROVEMENTS - option c**
-    - A - Implement a fast image-to-image translation algorithm like FDA.
+    - **A - Implement a fast image-to-image translation algorithm like FDA.**
+
+      Apply FDA to enhance the GTA5 training images, i.e. swap the low-frequency components of the Fourier amplitude spectra of the source and target images. The parameter *beta* controls the size of the low frequency window to be replaced.
+
       ![Alt text](images/image-1.png)
+
+      Train the model with labeled enhanced synthetic data from GTA5 and unlabelled real-world data from Cityscapes (semi-supervised learning). Evaluate the model on the validation set of Cityscapes.
+
       ```bash
       main.py --dataset CROSS_DOMAIN --data_transformations 0 --batch_size 5 --learning_rate 0.01 --num_epochs 50 --save_model_path trained_models\norm_fda0.09 --resume False --comment norm_fda0.09 --mode train_fda --num_workers 4 --optimizer sgd --beta 0.09
       ```
@@ -106,18 +112,30 @@ This repository contains the code of our project for the course "Advanced Machin
       | 0.05 | xxxx           | xxxx       | xxxx                        |
       | 0.09 | xxxx           | xxxx       | xxxx                        |
     
-    - B - Evaluate the performance of the Segmentation Network adapted with MBT.
+    - **B - Evaluate the performance of the Segmentation Network adapted with MBT.**
+      
+      Multi-band Transfer consists in using the mean prediction of different segmentation networks trained with different spectral domain sizes (betas).
+
       ```bash
       main.py --dataset CROSS_DOMAIN --mode test_mbt --fda_b1_path trained_models\norm_fda0.01\best.pth --fda_b2_path trained_models\norm_fda0.05\best.pth --fda_b3_path trained_models\norm_fda0.09\best.pth
       ```
+
+      Evaluate the model on the validation set of Cityscapes.
+
       | Accuracy _(%)_ | mIoU _(%)_ |
       |----------------|------------|
       | xxxx           | xxxx       |
-    - C - Implement a self-learning approach.
+
+    - **C - Implement a self-learning approach.**
+
+      Generate pseudo-labels for the training set of Cityscapes using the predictions of the model adapted with MBT. To avoid overfitting, filter out the low-confidence predictions.
+
       ```bash
       main.py --dataset CROSS_DOMAIN --data_transformation 0 --mode save_pseudo --fda_b1_path trained_models\norm_fda0.01\best.pth --fda_b2_path trained_models\norm_fda0.05\best.pth --fda_b3_path trained_models\norm_fda0.09\best.pth --save_pseudo_path dataset\Cityscapes\pseudo_label
       ```
       ![Alt text](images/image-2.png)
+
+      Train the model with labeled synthetic data from GTA5 and pseudo-labeled real-world data from Cityscapes. Evaluate the model on the validation set of Cityscapes.
       
       ```bash
       main.py --dataset CROSS_DOMAIN --data_transformations 0 --batch_size 5 --learning_rate 0.01 --num_epochs 50 --save_model_path trained_models\selflearn_fda0.01 --resume False --comment selflearn_fda0.01 --mode self_learning --num_workers 4 --optimizer sgd --beta 0.01
@@ -134,10 +152,14 @@ This repository contains the code of our project for the course "Advanced Machin
       | 0.05 | xxxx           | xxxx       | xxxx                        |
       | 0.09 | xxxx           | xxxx       | xxxx                        |
 
-    - D - Evaluate the performance of the Segmentation Network trained with self-learning adapted with an additional step of MBT.
+    - **D - Evaluate the performance of the Segmentation Network trained with self-learning adapted with an additional step of MBT.**
+
+      Evaluate the model on the validation set of Cityscapes.
+
       ```bash
       main.py --dataset CROSS_DOMAIN --mode test_mbt --fda_b1_path trained_models\selflearn_fda0.01\best.pth --fda_b2_path trained_models\selflearn_fda0.05\best.pth --fda_b3_path trained_models\selflearn_fda0.09\best.pth
       ```
+
       | Accuracy _(%)_ | mIoU _(%)_ |
       |----------------|------------|
       | xxxx           | xxxx       |
