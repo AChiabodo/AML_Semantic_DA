@@ -18,7 +18,7 @@ from datasets.cityscapes import CityScapes
 from datasets.GTA5 import GTA5
 # Utils
 from utils.general import str2bool, load_ckpt
-from utils.aug import ExtCompose, ExtToTensor, ExtRandomHorizontalFlip , ExtScale , ExtRandomCrop, ExtGaussianBlur, ExtColorJitter, ExtRandomCompose, ExtResize, ExtNormalize
+from utils.aug import ExtCompose, ExtToTensor, ExtRandomHorizontalFlip , ExtScale , ExtRandomCrop, ExtGaussianBlur, ExtColorJitter, ExtRandomCompose, ExtResize, ExtNormalize, ExtToV2Tensor, V2Normalize
 from utils.fda import test_mbt, save_pseudo
 # Training
 from training.simple_train import train
@@ -30,9 +30,11 @@ from eval import val
 
 # GLOBAL VARIABLES
 # Image mean of the Cityscapes dataset (used for normalization)
-MEAN = torch.tensor([104.00698793, 116.66876762, 122.67891434])
-STD = torch.tensor([1.0, 1.0, 1.0])
+MEAN_CS = torch.tensor([104.00698793, 116.66876762, 122.67891434])
+STD_CS = torch.tensor([1.0, 1.0, 1.0])
 
+MEAN = torch.tensor([0.485, 0.456, 0.406])
+STD = torch.tensor([0.229, 0.224, 0.225])
 """
   LAST TRAINING TRIALS:
 
@@ -71,7 +73,7 @@ def parse_args():
     parse.add_argument('--mode',
                        dest='mode',
                        type=str,
-                       default='save_pseudo',
+                       default='train_da',
                        help='Select between simple training (train),'+
                             'training with Domain Adaptation (train_da),'+
                             'training with Fourier Domain Adaptation (train_fda),'+
@@ -140,7 +142,7 @@ def parse_args():
     )
     parse.add_argument('--num_workers',
                        type=int,
-                       default=4,
+                       default=2,
                        help='Number of threads used to load the data during training'
     )
     parse.add_argument('--num_classes',
@@ -238,9 +240,13 @@ def main():
     args.dataset = args.dataset.upper()
     
     # 2. Data Transformations Selection
+    size = (512,1024)
+    if args.dataset == 'GTA5':
+        size = (526,957)
         
+
     """By default, the images are resized to 0.5 of their original size to reduce computational cost"""
-    standard_transformations = ExtCompose([ExtScale(0.5,interpolation=Image.Resampling.BILINEAR), ExtToTensor()])
+    standard_transformations = ExtCompose([ExtResize(size=size), ExtToV2Tensor(), V2Normalize(scale=True)])
     """The Validation Set is also resized to 0.5 of its original size"""
     eval_transformations = standard_transformations
 
@@ -255,19 +261,13 @@ def main():
             transformations = standard_transformations
             target_transformations = standard_transformations
             
-            
             if args.mode == 'train_fda' or args.mode == 'test_mbt' or args.mode == 'self_learning':
                 """FDA does not need Normalization before the Fourier Transform"""
-                transformations = ExtCompose([ExtResize((512,1024)), ExtToTensor()])
+                transformations = ExtCompose([ExtResize(size), ExtToTensor()])
                 target_transformations = transformations
-                eval_transformations = ExtCompose([ExtResize((512,1024)), ExtToTensor(),ExtNormalize(mean=MEAN,std=torch.tensor([1.0,1.0,1.0]))])
+                eval_transformations = ExtCompose([ExtResize(size), ExtToTensor(),ExtNormalize(mean=MEAN_CS,std=torch.tensor([1.0,1.0,1.0]))])
             elif args.mode == 'save_pseudo':
-                target_transformations = ExtCompose([ExtResize((512,1024)), ExtToTensor(),ExtNormalize(mean=MEAN,std=torch.tensor([1.0,1.0,1.0]))])
-            elif args.dataset == 'CROSS_DOMAIN':
-                """DA needs the same size for the images of the source and target domains"""
-                transformations = ExtCompose([ExtResize((512,1024)), ExtToTensor()])
-                target_transformations = transformations
-                eval_transformations = ExtCompose([ExtResize((512,1024)), ExtToTensor()])
+                target_transformations = ExtCompose([ExtResize(size), ExtToTensor(),ExtNormalize(mean=MEAN_CS,std=torch.tensor([1.0,1.0,1.0]))])
             
         case 1:
             """
@@ -278,25 +278,25 @@ def main():
             - Images are randomly flipped horizontally
             """
             transformations = ExtRandomCompose([
-                ExtScale(random.choice([1,1.25,1.5,1.75,2]),interpolation=Image.Resampling.BILINEAR),
-                ExtRandomCrop((512, 1024)),
+                ExtScale(random.choice([0.75,1,1.25,1.5,1.75,2]),interpolation=Image.Resampling.BILINEAR),
+                ExtRandomCrop(size),
                 ExtRandomHorizontalFlip(),
-                ExtToTensor(),
-                ExtNormalize(mean=MEAN,std=STD)
+                ExtToV2Tensor(),
+                V2Normalize(scale=True)
                 ],
-                [ExtResize((512,1024)), ExtToTensor(),ExtNormalize(mean=MEAN,std=STD)])
-            target_transformations = ExtCompose([ExtResize((512,1024)), ExtToTensor(),ExtNormalize(mean=MEAN,std=STD)])
+                [ExtResize(size), ExtToV2Tensor(),V2Normalize(scale=True)])
+            target_transformations = ExtCompose([ExtResize(size), ExtToV2Tensor(),V2Normalize(scale=True)])
             eval_transformations = target_transformations
 
             if args.mode == 'train_fda' or args.mode == 'test_mbt' or args.mode == 'save_pseudo':
                 transformations = ExtRandomCompose([
                 ExtScale(random.choice([0.75,1,1.25,1.5,1.75,2]),interpolation=Image.Resampling.BILINEAR),
-                ExtRandomCrop((args.crop_height, args.crop_width)),
+                ExtRandomCrop(size),
                 ExtRandomHorizontalFlip(),
                 ExtToTensor()],
-                [ExtResize((512,1024)), ExtToTensor()])
+                [ExtResize(size), ExtToTensor()])
                 target_transformations = transformations
-                eval_transformations = ExtCompose([ExtResize((512,1024)), ExtToTensor(),ExtNormalize(mean=MEAN,std=torch.tensor([1.0,1.0,1.0]))])
+                eval_transformations = ExtCompose([ExtResize(size), ExtToTensor(),ExtNormalize(mean=MEAN_CS,std=torch.tensor([1.0,1.0,1.0]))])
 
         case 2:
             """
@@ -310,26 +310,26 @@ def main():
             """
             transformations = ExtRandomCompose([
                 ExtScale(random.choice([1.25,1.5,1.75,2]),interpolation=Image.Resampling.BILINEAR),
-                ExtRandomCrop((512,1024)),
+                ExtRandomCrop(size),
                 ExtRandomHorizontalFlip(),
                 ExtGaussianBlur(p=0.5, radius=1),
                 ExtColorJitter(p=0.5, brightness=0.2, contrast=0.1, saturation=0.1, hue=0.2),
                 ExtToTensor(),
-                ExtNormalize(mean=MEAN,std=STD)],
-                [ExtResize((512,1024)), ExtToTensor(),ExtNormalize(mean=MEAN,std=STD)])
+                ExtNormalize(mean=MEAN_CS,std=STD_CS)],
+                [ExtResize(size), ExtToTensor(),ExtNormalize(mean=MEAN_CS,std=STD_CS)])
             target_transformations = transformations
-            eval_transformations = ExtCompose([ExtResize((512,1024)), ExtToTensor(),ExtNormalize(mean=MEAN,std=STD)])
+            eval_transformations = ExtCompose([ExtResize(size), ExtToTensor(),ExtNormalize(mean=MEAN_CS,std=STD_CS)])
             if args.mode == 'train_fda' or args.mode == 'test_mbt' or args.mode == 'save_pseudo':
                 transformations = ExtRandomCompose([
                 ExtScale(random.choice([1.25,1.5,1.75,2]),interpolation=Image.Resampling.BILINEAR),
-                ExtRandomCrop((512,1024)),
+                ExtRandomCrop(size),
                 ExtRandomHorizontalFlip(),
                 ExtGaussianBlur(p=0.5, radius=1),
                 ExtColorJitter(p=0.5, brightness=0.2, contrast=0.1, saturation=0.1, hue=0.2),
                 ExtToTensor()],
-                [ExtResize((512,1024)), ExtToTensor()])
+                [ExtResize(size), ExtToTensor()])
                 target_transformations = transformations
-                eval_transformations = ExtCompose([ExtResize((512,1024)), ExtToTensor(),ExtNormalize(mean=MEAN,std=STD)])
+                eval_transformations = ExtCompose([ExtResize(size), ExtToTensor(),ExtNormalize(mean=MEAN_CS,std=STD_CS)])
 
     # 3. Datasets Selection
     
