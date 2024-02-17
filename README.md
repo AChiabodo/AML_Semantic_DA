@@ -90,17 +90,17 @@ This repository contains the code of our project for the course "Advanced Machin
 
 4. **IMPROVEMENTS - option c**
     - A - Implement a fast image-to-image translation algorithm like FDA.
-    ```bash
-    main.py --dataset CROSS_DOMAIN --data_transformations 0 --batch_size 5 --learning_rate 0.01 --num_epochs 50 --save_model_path trained_models\norm_fda0.09 --resume False --comment norm_fda0.09 --mode train_fda --num_workers 4 --optimizer sgd --beta 0.09
-    ```
-    ```Python
-    # Train also with beta 0.01 and 0.05
-    ```
-    | beta | Accuracy _(%)_ | mIoU _(%)_ | Train Time (avg per-epochs) |
-    |------|----------------|------------|-----------------------------|
-    | 0.01 | xxxx           | xxxx       | xxxx                        |
-    | 0.05 | xxxx           | xxxx       | xxxx                        |
-    | 0.09 | xxxx           | xxxx       | xxxx                        |
+      ```bash
+      main.py --dataset CROSS_DOMAIN --data_transformations 0 --batch_size 5 --learning_rate 0.01 --num_epochs 50 --save_model_path trained_models\norm_fda0.09 --resume False --comment norm_fda0.09 --mode train_fda --num_workers 4 --optimizer sgd --beta 0.09
+      ```
+      ```Python
+      # Train also with beta 0.01 and 0.05
+      ```
+      | beta | Accuracy _(%)_ | mIoU _(%)_ | Train Time (avg per-epochs) |
+      |------|----------------|------------|-----------------------------|
+      | 0.01 | xxxx           | xxxx       | xxxx                        |
+      | 0.05 | xxxx           | xxxx       | xxxx                        |
+      | 0.09 | xxxx           | xxxx       | xxxx                        |
     
     - B - Evaluate the performance of the Segmentation Network adapted with MBT.
     ```bash
