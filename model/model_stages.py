@@ -49,18 +49,6 @@ class ConvBNReLU(nn.Module):
 
             
 class BiSeNetDiscriminator(nn.Module):
-    class DiscriminatorConv(nn.Module):
-        def __init__(self, *args, **kwargs) -> None:
-            super().__init__()
-            # Creating a convolutional block with leaky ReLU activation
-            self.conv = nn.Sequential(
-                nn.Conv2d(*args, **kwargs),  # Setting up a 2D convolutional layer
-                nn.LeakyReLU(0.2, inplace=True)  # Applying Leaky ReLU activation for non-linearity
-            )
-            
-        def forward(self, x):
-            return self.conv(x)  # Perform convolutional operation on input x
-
     def __init__(self, num_classes, alpha=0.1, *args, **kwargs):
         super(BiSeNetDiscriminator, self).__init__()
         self.alpha = alpha
