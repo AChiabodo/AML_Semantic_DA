@@ -308,16 +308,17 @@ def main():
             - Images are randomly color jittered
             """
             transformations = ExtRandomCompose([
-                ExtScale(random.choice([1.25,1.5,1.75,2]),interpolation=Image.Resampling.BILINEAR),
+                ExtScale(random.choice([0.75,1,1.25,1.5,1.75,2]),interpolation=Image.Resampling.BILINEAR),
                 ExtRandomCrop(size),
                 ExtRandomHorizontalFlip(),
                 ExtGaussianBlur(p=0.5, radius=1),
                 ExtColorJitter(p=0.5, brightness=0.2, contrast=0.1, saturation=0.1, hue=0.2),
-                ExtToTensor(),
-                ExtNormalize(mean=MEAN_CS,std=STD_CS)],
-                [ExtResize(size), ExtToTensor(),ExtNormalize(mean=MEAN_CS,std=STD_CS)])
+                ExtToV2Tensor(),
+                V2Normalize(mean=MEAN,std=STD, scale=True)],
+                [ExtResize(size), ExtToV2Tensor(),V2Normalize(mean=MEAN,std=STD, scale=True)])
             target_transformations = transformations
-            eval_transformations = ExtCompose([ExtResize(size), ExtToTensor(),ExtNormalize(mean=MEAN_CS,std=STD_CS)])
+            #eval_transformations = ExtCompose([ExtResize(size), ExtToTensor(),ExtNormalize(mean=MEAN_CS,std=STD_CS)])
+            
             if args.mode == 'train_fda' or args.mode == 'test_mbt' or args.mode == 'save_pseudo':
                 transformations = ExtRandomCompose([
                 ExtScale(random.choice([1.25,1.5,1.75,2]),interpolation=Image.Resampling.BILINEAR),
