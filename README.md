@@ -48,19 +48,75 @@ This repository contains the code of our project for the course "Advanced Machin
     
       Train the model on the the training set of Cityscapes and evaluate it on the validation set of Cityscapes.
 
+      ```bash
+      main.py --dataset Cityscapes --data_transformations 0 --batch_size 10 --learning_rate 0.01 --num_epochs 50 --save_model_path trained_models\cityscapes --resume False --comment cityscapes --mode train --num_workers 4 --optimizer sgd
+      ```
+
+      | Accuracy _(%)_ | mIoU _(%)_ | Train Time (avg per-epochs) |
+      |----------------|------------|-----------------------------|
+      | XXXX           | XXXX       | XXXX                        |
+
     - > B - Train on the synthetic dataset.
     
       Train the model on the training set of GTA5 and evaluate it on the validation set of GTA5.
+
+      ```bash
+      main.py --dataset GTA5 --data_transformations 0 --batch_size 10 --learning_rate 0.01 --num_epochs 50 --save_model_path trained_models\gta --resume False --comment gta --mode train --num_workers 4 --optimizer sgd
+      ```
+
+      | Accuracy _(%)_ | mIoU _(%)_ | Train Time (avg per-epochs) |
+      |----------------|------------|-----------------------------|
+      | XXXX           | XXXX       | XXXX                        |
 
     - > C1 - Evaluate the domain shift.
 
       Test the model trained at step B on the validation set of Cityscapes.
 
+      ```bash
+      main.py --dataset CROSS_DOMAIN --data_transformations 0 --batch_size 10 --resume_model_path trained_models\gta\best.pth --mode test
+      ```
+
+      | Accuracy _(%)_ | mIoU _(%)_ |
+      |----------------|------------|
+      | XXXX           | XXXX       |
+
     - > C2 - Evaluate the domain shift performing data augmentation.
 
       Train the model on the training set of GTA5 using data augmentation (probability 0.5) and evaluate it on the validation set of Cityscapes.
 
+      ```bash
+      main.py --dataset CROSS_DOMAIN --data_transformations 1 --batch_size 10 --learning_rate 0.01 --num_epochs 50 --save_model_path trained_models\augm1 --resume False --comment augm1 --mode train --num_workers 4 --optimizer sgd
+      ```
+      ```bash
+      main.py --dataset CROSS_DOMAIN --data_transformations 2 --batch_size 10 --learning_rate 0.01 --num_epochs 50 --save_model_path trained_models\augm2 --resume False --comment augm2 --mode train --num_workers 4 --optimizer sgd
+      ```
+
+      | Augmentation        | Accuracy _(%)_ | mIoU _(%)_ | Train Time (avg per-epochs) |
+      |---------------------|----------------|------------|-----------------------------|
+      | Weak augmentation   | XXXX           | XXXX       | XXXX                        |
+      | Strong augmentation | XXXX           | XXXX       | XXXX                        |
+
+
 3. **IMPLEMENTING UNSUPERVISED ADVERSARIAL DOMAIN ADAPTATION** - Perform adversarial training with labeled synthetic data (GTA5) and unlabelled real-world data (Cityscapes). Evaluate the model on the validation set of Cityscapes.
+
+    ```bash
+    main.py --dataset CROSS_DOMAIN --data_transformations 0 --batch_size 6 --learning_rate 0.01 --num_epochs 50 --save_model_path trained_models\norm_da --resume False --comment norm_da --mode train_da --num_workers 4 --optimizer sgd --d_lr 0.001
+    ```
+
+    ```bash
+    main.py --dataset CROSS_DOMAIN --data_transformations 1 --batch_size 6 --learning_rate 0.01 --num_epochs 50 --save_model_path trained_models\norm_da_augm1 --resume False --comment norm_da_augm1 --mode train_da --num_workers 4 --optimizer sgd --d_lr 0.001
+    ```
+
+    ```bash
+    main.py --dataset CROSS_DOMAIN --data_transformations 2 --batch_size 6 --learning_rate 0.01 --num_epochs 50 --save_model_path trained_models\norm_da_augm2 --resume False --comment norm_da_augm2 --mode train_da --num_workers 4 --optimizer sgd --d_lr 0.001
+    ```
+
+    | Augmentation        | Accuracy _(%)_ | mIoU _(%)_ | Train Time (avg per-epochs) |
+    |---------------------|----------------|------------|-----------------------------|
+    | No augmentation     | XXXX           | XXXX       | XXXX                        |
+    | Weak augmentation   | XXXX           | XXXX       | XXXX                        |
+    | Strong augmentation | XXXX           | XXXX       | XXXX                        |
+
 
 4. **IMPROVEMENTS - option c**
     - > A - Implement a fast image-to-image translation algorithm like FDA.
