@@ -29,7 +29,7 @@ from eval import val
 
 # GLOBAL VARIABLES
 # Image mean of the Cityscapes dataset (used for normalization)
-MEAN_CS = torch.tensor([104.00698793, 116.66876762, 122.67891434])
+MEAN_CS = torch.tensor([0.4079, 0.4575, 0.4811])
 STD_CS = torch.tensor([1.0, 1.0, 1.0])
 
 MEAN = torch.tensor([0.485, 0.456, 0.406])
@@ -57,7 +57,7 @@ Used Training Commands:
     Augm-1: main.py --dataset CROSS_DOMAIN --data_transformations 1 --batch_size 10 --learning_rate 0.01 --num_epochs 50 --save_model_path trained_models\test_augm1_gta --resume False --comment test_augm1 --mode train --num_workers 4 --optimizer sgd 
     Augm-2: main.py --dataset CROSS_DOMAIN --data_transformations 2 --batch_size 10 --learning_rate 0.01 --num_epochs 50 --save_model_path trained_models\test_augm2_gta --resume False --comment test_augm2 --mode train --num_workers 4 --optimizer sgd
     DA    : main.py --dataset CROSS_DOMAIN --data_transformations 0 --batch_size 6 --learning_rate 0.01 --num_epochs 50 --save_model_path trained_models\norm_da --resume False --comment norm_da --mode train_da --num_workers 4 --optimizer sgd --d_lr 0.001
-    FDA   : main.py --dataset CROSS_DOMAIN --data_transformations 0 --batch_size 5 --learning_rate 0.01 --num_epochs 50 --save_model_path trained_models\test_norm_fda --resume False --comment test_norm_fda --mode train_fda --num_workers 4 --optimizer sgd
+    FDA   : main.py --dataset CROSS_DOMAIN --data_transformations 1 --batch_size 10 --learning_rate 0.01 --num_epochs 50 --save_model_path trained_models\norm_fda_augm_0.05 --resume False --comment test_norm_fda_0.05 --mode train_fda --num_workers 4 --optimizer sgd --beta 0.05 --validation_step 5
     SL    : main.py --dataset CROSS_DOMAIN --data_transformations 0 --batch_size 5 --learning_rate 0.01 --num_epochs 50 --save_model_path trained_models\selflearn_fda0.01 --resume False --comment selflearn_fda0.01 --mode self_learning --num_workers 4 --optimizer sgd --beta 0.01
     
 
@@ -72,7 +72,7 @@ def parse_args():
     parse.add_argument('--mode',
                        dest='mode',
                        type=str,
-                       default='train_da',
+                       default='train_fda',
                        help='Select between simple training (train),'+
                             'training with Domain Adaptation (train_da),'+
                             'training with Fourier Domain Adaptation (train_fda),'+
@@ -260,14 +260,6 @@ def main():
             transformations = standard_transformations
             target_transformations = standard_transformations
             
-            if args.mode == 'train_fda' or args.mode == 'test_mbt' or args.mode == 'self_learning':
-                """FDA does not need Normalization before the Fourier Transform"""
-                transformations = ExtCompose([ExtResize(size), ExtToTensor()])
-                target_transformations = transformations
-                eval_transformations = ExtCompose([ExtResize(size), ExtToTensor(),ExtNormalize(mean=MEAN_CS,std=torch.tensor([1.0,1.0,1.0]))])
-            elif args.mode == 'save_pseudo':
-                target_transformations = ExtCompose([ExtResize(size), ExtToTensor(),ExtNormalize(mean=MEAN_CS,std=torch.tensor([1.0,1.0,1.0]))])
-            
         case 1:
             """
             Feeble Data Augmentation -> 50% probability to be applied
@@ -286,16 +278,6 @@ def main():
                 [ExtResize(size), ExtToV2Tensor(),V2Normalize(scale=True)])
             target_transformations = ExtCompose([ExtResize(size), ExtToV2Tensor(),V2Normalize(scale=True)])
             eval_transformations = target_transformations
-
-            if args.mode == 'train_fda' or args.mode == 'test_mbt' or args.mode == 'save_pseudo':
-                transformations = ExtRandomCompose([
-                ExtScale(random.choice([0.75,1,1.25,1.5,1.75,2]),interpolation=Image.Resampling.BILINEAR),
-                ExtRandomCrop(size),
-                ExtRandomHorizontalFlip(),
-                ExtToTensor()],
-                [ExtResize(size), ExtToTensor()])
-                target_transformations = transformations
-                eval_transformations = ExtCompose([ExtResize(size), ExtToTensor(),ExtNormalize(mean=MEAN_CS,std=torch.tensor([1.0,1.0,1.0]))])
 
         case 2:
             """
@@ -318,19 +300,22 @@ def main():
                 [ExtResize(size), ExtToV2Tensor(),V2Normalize(mean=MEAN,std=STD, scale=True)])
             target_transformations = transformations
             #eval_transformations = ExtCompose([ExtResize(size), ExtToTensor(),ExtNormalize(mean=MEAN_CS,std=STD_CS)])
-            
-            if args.mode == 'train_fda' or args.mode == 'test_mbt' or args.mode == 'save_pseudo':
+
+    if args.mode == 'save_pseudo' or args.mode == 'test_mbt' :
+                transformations = ExtCompose([ExtResize(size), ExtToV2Tensor()])
+                target_transformations = ExtCompose([ExtResize(size), ExtToV2Tensor(),V2Normalize(scale=True,mean=MEAN_CS,std=STD_CS)])
+
+    if args.mode == 'train_fda':
+                print('Applying FDA specific transformations')
                 transformations = ExtRandomCompose([
-                ExtScale(random.choice([1.25,1.5,1.75,2]),interpolation=Image.Resampling.BILINEAR),
+                ExtScale(random.choice([0.75,1,1.25,1.5,1.75,2]),interpolation=Image.Resampling.BILINEAR),
                 ExtRandomCrop(size),
                 ExtRandomHorizontalFlip(),
-                ExtGaussianBlur(p=0.5, radius=1),
-                ExtColorJitter(p=0.5, brightness=0.2, contrast=0.1, saturation=0.1, hue=0.2),
-                ExtToTensor()],
-                [ExtResize(size), ExtToTensor()])
-                target_transformations = transformations
-                eval_transformations = ExtCompose([ExtResize(size), ExtToTensor(),ExtNormalize(mean=MEAN_CS,std=STD_CS)])
-
+                ExtToV2Tensor()],
+                [ExtResize(size), ExtToV2Tensor()])
+                target_transformations = ExtCompose([ExtResize(size), ExtToV2Tensor()])
+                eval_transformations = ExtCompose([ExtResize(size), ExtToV2Tensor(),V2Normalize(mean=MEAN_CS,std=torch.tensor([1.0,1.0,1.0]))])
+    
     # 3. Datasets Selection
     
     if args.dataset == 'CITYSCAPES':
