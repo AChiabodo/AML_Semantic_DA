@@ -16,9 +16,8 @@ import numpy as np
 import torch.nn as nn
 import torch.nn.functional as F
 import os
-from torch.utils.tensorboard import SummaryWriter
 from model.model_stages import BiSeNet
-from utils.general import reverse_one_hot, compute_global_accuracy, fast_hist, per_class_iu, save_ckpt
+from utils.general import reverse_one_hot, compute_global_accuracy, fast_hist, per_class_iu
 from datasets.cityscapes import CityScapes
 
 #################

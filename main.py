@@ -7,7 +7,6 @@ from torch.utils.data import DataLoader
 from PIL import Image
 import argparse
 import random
-import os
 from tensorboardX import SummaryWriter
 # PERSONAL
 # Models
@@ -211,17 +210,17 @@ def parse_args():
     )
     parse.add_argument('--fda_b1_path',
                         type=str,
-                        default='trained_models\\norm_fda_augm_0.01\\best.pth',
+                        default='trained_models\\augm_selflearn_fda0.01\\best.pth',
                         help='Path to the model trained with beta=0.01'
     )
     parse.add_argument('--fda_b2_path',
                         type=str,
-                        default='trained_models\\norm_fda_augm_0.05\\best.pth',
+                        default='trained_models\\augm_selflearn_fda0.05\\best.pth',
                         help='Path to the model trained with beta=0.05'
     )
     parse.add_argument('--fda_b3_path',
                         type=str,
-                        default='trained_models\\norm_fda_augm_0.09\\best.pth',
+                        default='trained_models\\augm_selflearn_fda0.09\\best.pth',
                         help='Path to the model trained with beta=0.09'
     )
     parse.add_argument('--save_pseudo_path',

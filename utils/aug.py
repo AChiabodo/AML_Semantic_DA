@@ -29,7 +29,6 @@
 import torch
 import torchvision.transforms.functional as F
 from PIL import Image
-import numpy as np
 import random
 import numbers
 from typing import Optional, List
