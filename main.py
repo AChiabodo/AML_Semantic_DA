@@ -17,7 +17,7 @@ from datasets.cityscapes import CityScapes
 from datasets.GTA5 import GTA5
 # Utils
 from utils.general import str2bool, load_ckpt
-from utils.aug import ExtCompose, ExtToTensor, ExtRandomHorizontalFlip , ExtScale , ExtRandomCrop, ExtGaussianBlur, ExtColorJitter, ExtRandomCompose, ExtResize, ExtNormalize, ExtToV2Tensor, V2Normalize
+from utils.aug import ExtCompose, ExtRandomHorizontalFlip , ExtScale , ExtRandomCrop, ExtGaussianBlur, ExtColorJitter, ExtRandomCompose, ExtResize, ExtToV2Tensor, V2Normalize
 from utils.fda import test_mbt, save_pseudo
 # Training
 from training.simple_train import train
@@ -72,7 +72,7 @@ def parse_args():
     parse.add_argument('--mode',
                        dest='mode',
                        type=str,
-                       default='train_fda',
+                       default='save_pseudo',
                        help='Select between simple training (train),'+
                             'training with Domain Adaptation (train_da),'+
                             'training with Fourier Domain Adaptation (train_fda),'+
@@ -211,17 +211,17 @@ def parse_args():
     )
     parse.add_argument('--fda_b1_path',
                         type=str,
-                        default='trained_models\\selflearn_fda0.01\\best.pth',
+                        default='trained_models\\norm_fda_augm_0.01\\best.pth',
                         help='Path to the model trained with beta=0.01'
     )
     parse.add_argument('--fda_b2_path',
                         type=str,
-                        default='trained_models\\selflearn_fda0.05\\best.pth',
+                        default='trained_models\\norm_fda_augm_0.05\\best.pth',
                         help='Path to the model trained with beta=0.05'
     )
     parse.add_argument('--fda_b3_path',
                         type=str,
-                        default='trained_models\\selflearn_fda0.09\\best.pth',
+                        default='trained_models\\norm_fda_augm_0.09\\best.pth',
                         help='Path to the model trained with beta=0.09'
     )
     parse.add_argument('--save_pseudo_path',
@@ -302,10 +302,11 @@ def main():
             #eval_transformations = ExtCompose([ExtResize(size), ExtToTensor(),ExtNormalize(mean=MEAN_CS,std=STD_CS)])
 
     if args.mode == 'save_pseudo' or args.mode == 'test_mbt' :
-                transformations = ExtCompose([ExtResize(size), ExtToV2Tensor()])
+                transformations = ExtCompose([ExtResize(size), ExtToV2Tensor(), V2Normalize(scale=True,mean=MEAN_CS,std=STD_CS)])
                 target_transformations = ExtCompose([ExtResize(size), ExtToV2Tensor(),V2Normalize(scale=True,mean=MEAN_CS,std=STD_CS)])
+                eval_transformations = ExtCompose([ExtResize(size), ExtToV2Tensor(),V2Normalize(scale=True,mean=MEAN_CS,std=STD_CS)])
 
-    if args.mode == 'train_fda':
+    if args.mode == 'train_fda' or args.mode == 'self_learning':
                 print('Applying FDA specific transformations')
                 transformations = ExtRandomCompose([
                 ExtScale(random.choice([0.75,1,1.25,1.5,1.75,2]),interpolation=Image.Resampling.BILINEAR),
@@ -314,7 +315,9 @@ def main():
                 ExtToV2Tensor()],
                 [ExtResize(size), ExtToV2Tensor()])
                 target_transformations = ExtCompose([ExtResize(size), ExtToV2Tensor()])
-                eval_transformations = ExtCompose([ExtResize(size), ExtToV2Tensor(),V2Normalize(mean=MEAN_CS,std=torch.tensor([1.0,1.0,1.0]))])
+                if args.mode == 'self_learning':
+                    target_transformations = transformations
+                eval_transformations = ExtCompose([ExtResize(size), ExtToV2Tensor(),V2Normalize(mean=MEAN_CS,std=STD_CS)])
     
     # 3. Datasets Selection
     
@@ -325,8 +328,8 @@ def main():
 
     elif args.dataset == 'GTA5':
         print('training on GTA5')
-        train_dataset = GTA5(root='dataset',split="train",transforms=transformations,labels_source='cityscapes')
-        val_dataset = GTA5(root='dataset',split="eval",transforms=eval_transformations,labels_source='cityscapes')
+        train_dataset = GTA5(root='dataset',split="train",transforms=transformations)
+        val_dataset = GTA5(root='dataset',split="eval",transforms=eval_transformations)
 
     elif args.dataset == 'CROSS_DOMAIN':
         print('training on GTA and validating on Cityscapes')
@@ -336,7 +339,7 @@ def main():
             target_dataset_train = CityScapes(split='train',mode='pseudo',transforms=target_transformations)
         val_dataset = CityScapes(split='val',transforms=eval_transformations)
     else:
-        print('not supported dataset \n')
+        print('Dataset not supported \n')
         return None
     
 
@@ -401,32 +404,28 @@ def main():
     if args.comment == '':
         args.comment = "_{}_{}_{}_{}".format(args.mode,args.dataset,args.batch_size,args.learning_rate)
 
-    # 9. Path to Pretrained Weights
-    if os.name == 'nt':
-        args.pretrain_path = args.pretrain_path.replace('\\','/')
-
-    # 10. Start Training or Evaluation
+    # 9. Start Training or Evaluation
     match args.mode:
         case 'train':
-            # 10.1. Simple Training on Source Dataset
+            # 9.1. Simple Training on Source Dataset
             train(args, model, optimizer, source_dataloader_train, dataloader_val, comment=args.comment)
         case 'train_da':
-            # 10.2. Training with Domain Adaptation
+            # 9.2. Training with Domain Adaptation
             train_da(args, model, optimizer, source_dataloader_train, target_dataloader_train, dataloader_val, comment=args.comment, d_lr=args.d_lr)
         case 'train_fda':
-            # 10.3. Training with Fourier Domain Adaptation
+            # 9.3. Training with Fourier Domain Adaptation
             train_fda(args, model, optimizer, source_dataloader_train, target_dataloader_train, dataloader_val, comment=args.comment, beta=args.beta)
         case 'test_mbt':
-            # 10.4. Testing the already trained FDA models using Multi-band Transfer => MBT on the Validation Set of Cityscapes
+            # 9.4. Testing the already trained FDA models using Multi-band Transfer => MBT on the Validation Set of Cityscapes
             test_mbt(args, dataloader_val, path_b1=args.fda_b1_path, path_b2=args.fda_b2_path, path_b3=args.fda_b3_path)
         case 'save_pseudo':
-            # 10.5. Save the pseudo labels generated using Multi-band Transfer => MBT on the Training Set of Cityscapes
+            # 9.5. Save the pseudo labels generated using Multi-band Transfer => MBT on the Training Set of Cityscapes
             save_pseudo(args, target_dataloader_train, path_b1=args.fda_b1_path, path_b2=args.fda_b2_path, path_b3=args.fda_b3_path, save_path=args.save_pseudo_path)
         case 'self_learning':
-            # 10.6. Training with Self-Learning FDA and Pseudo Labels
+            # 9.6. Training with Self-Learning FDA and Pseudo Labels
             train_self_learning_fda(args, model, optimizer, source_dataloader_train, target_dataloader_train, dataloader_val, comment=args.comment, beta=args.beta)
         case 'test':
-            # 10.7. Load the trained model and evaluate it on the Validation Set
+            # 9.7. Load the trained model and evaluate it on the Validation Set
             try:
                 load_ckpt(args, model=model)
                 print('successfully resume model from %s' % args.resume_model_path)
