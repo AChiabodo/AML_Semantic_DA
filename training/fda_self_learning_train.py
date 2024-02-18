@@ -14,11 +14,11 @@ from datasets.cityscapes import CityScapes
 from utils.general import poly_lr_scheduler, save_ckpt, load_ckpt
 from utils.fda import FDA_source_to_target, EntropyMinimizationLoss
 from eval import evaluate_and_save_model
-from utils.aug import ExtNormalize
+from utils.aug import V2Normalize
 # GLOBAL VARIABLES
 # Image mean of the Cityscapes dataset (used for normalization)
-MEAN_CS = torch.tensor([104.00698793, 116.66876762, 122.67891434])
-STD_CS = torch.tensor([1.0, 1.0, 1.0])
+MEAN = torch.tensor([0.4079, 0.4575, 0.4811])
+STD = torch.tensor([1.0, 1.0, 1.0])
 # COMMAND LINE
 # python main.py --mode self_learning --dataset CROSS_DOMAIN --save_model_path trained_models\self_learning_0.01 --comment self_learning_0.01 --data_transformation 0 --batch_size 5 --num_workers 4 --optimizer adam
 
@@ -92,11 +92,15 @@ def train_self_learning_fda(args, model, optimizer, source_dataloader_train, tar
 
             # FDA.1. Apply FDA to the source images to adapt their appearance to the target domain
             original_source_data = source_data.clone()
+            original_target_data = target_data.clone()
             t_source_data = FDA_source_to_target(source_data, target_data, beta)
 
             # FDA.2. Subtract the mean image from the source and target images for normalization
-            t_source_data, _ = ExtNormalize(mean=MEAN_CS,std=STD_CS)(t_source_data,lbl=source_label)
-            target_data, _ = ExtNormalize(mean=MEAN_CS,std=STD_CS)(target_data, lbl=source_label)
+
+            t_source_data = t_source_data / 255.0
+            t_source_data, _ = V2Normalize(mean=MEAN,std=STD)(t_source_data,lbl=source_label)
+            target_data = target_data / 255.0
+            target_data, _ = V2Normalize(mean=MEAN,std=STD)(target_data, lbl=source_label)
 
             # FDA.3. Get the predictions for the source images
             with amp.autocast():
@@ -135,18 +139,18 @@ def train_self_learning_fda(args, model, optimizer, source_dataloader_train, tar
                 print('epoch {}, iter {}, tot_loss: {}'.format(epoch, i, loss))
 
                 # GTA5
-                src_colorized_predictions , src_colorized_labels = CityScapes.visualize_prediction(s_output, source_label)
+                src_colorized_predictions , src_colorized_labels = CityScapes.visualize_prediction(s_output, source_label.squeeze(1))
                 writer.add_image('epoch%d/iter%d/source_predicted_labels' % (epoch, i), np.array(src_colorized_predictions), step, dataformats='HWC')
                 writer.add_image('epoch%d/iter%d/source_correct_labels' % (epoch, i), np.array(src_colorized_labels), step, dataformats='HWC')
                 writer.add_image('epoch%d/iter%d/source_original_data' % (epoch, i), np.array(original_source_data[0].detach().cpu(),dtype='uint8'), step, dataformats='CHW')
-                t_source_data_vis = t_source_data + MEAN_CS[:, None, None].cuda()
+                t_source_data_vis = (t_source_data + MEAN[:, None, None].cuda()) * 255.0
                 writer.add_image('epoch%d/iter%d/source_stylized_data' % (epoch, i), np.array(t_source_data_vis[0].detach().cpu(),dtype='uint8'), step, dataformats='CHW')
 
                 # Cityscapes
-                tgt_colorized_predictions , tgt_colorized_pseudo_labels = CityScapes.visualize_prediction(t_output, target_pseudo_label)
+                tgt_colorized_predictions , tgt_colorized_pseudo_labels = CityScapes.visualize_prediction(t_output, target_pseudo_label.squeeze(1))
                 writer.add_image('epoch%d/iter%d/target_predicted_labels' % (epoch, i), np.array(tgt_colorized_predictions), step, dataformats='HWC')
                 writer.add_image('epoch%d/iter%d/target_pseudo_labels' % (epoch, i), np.array(tgt_colorized_pseudo_labels), step, dataformats='HWC')
-                writer.add_image('epoch%d/iter%d/target_original_data' % (epoch, i), np.array(target_data[0].detach().cpu(),dtype='uint8'), step, dataformats='CHW')
+                writer.add_image('epoch%d/iter%d/target_original_data' % (epoch, i), np.array(original_target_data[0].detach().cpu(),dtype='uint8'), step, dataformats='CHW')
 
             # 4.5.5. Update the progress bar
             tq.update(args.batch_size)
@@ -169,7 +173,7 @@ def train_self_learning_fda(args, model, optimizer, source_dataloader_train, tar
         
         # 4.8. Evaluate the model on the validation set every {args.validation_step} epochs
         if epoch % args.validation_step == 0 and epoch != 0:
-            max_miou = evaluate_and_save_model(args, model, target_dataloader_val, writer, epoch, step, max_miou, mean=MEAN_CS, std=STD_CS)
+            max_miou = evaluate_and_save_model(args, model, target_dataloader_val, writer, epoch, step, max_miou, mean=MEAN, std=MEAN)
     
     # 5. Final Evaluation
-    max_miou = evaluate_and_save_model(args, model, target_dataloader_val, writer, epoch, step, max_miou, mean=MEAN_CS, std=STD_CS)
+    max_miou = evaluate_and_save_model(args, model, target_dataloader_val, writer, epoch, step, max_miou, mean=MEAN, std=MEAN)
