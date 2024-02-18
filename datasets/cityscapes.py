@@ -1,10 +1,8 @@
-import json
 import os
 from collections import namedtuple
-import random
-from typing import Any, Callable, Dict, List, Optional, Tuple, Union
+from typing import Any, Callable, List, Optional, Tuple, Union
 from PIL import Image
-from utils.aug import ExtResize, ExtToTensor, ExtTransforms , ExtCompose
+from utils.aug import ExtTransforms
 from torchvision.datasets.utils import iterable_to_str, verify_str_arg
 from torchvision.datasets.vision import VisionDataset
 import numpy as np

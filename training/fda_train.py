@@ -14,7 +14,7 @@ from datasets.cityscapes import CityScapes
 from utils.general import poly_lr_scheduler, save_ckpt, load_ckpt
 from utils.fda import FDA_source_to_target, EntropyMinimizationLoss
 from eval import evaluate_and_save_model
-from utils.aug import ExtNormalize, V2Normalize
+from utils.aug import V2Normalize
 # GLOBAL VARIABLES
 # Image mean of the Cityscapes dataset (used for normalization)
 MEAN = torch.tensor([0.4079, 0.4575, 0.4811])

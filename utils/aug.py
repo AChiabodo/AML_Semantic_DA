@@ -88,40 +88,22 @@ class ExtRandomCompose(ExtTransforms):
                 img, lbl = t(img, lbl)
         return img, lbl
 
-class ExtToTensor(ExtTransforms):
+class ExtToV2Tensor(ExtTransforms):
     """
-    Convert a ``PIL Image`` or ``numpy.ndarray`` to tensor.
+    Convert a ``PIL Image`` or ``numpy.ndarray`` to V2 tensor.
     Converts a PIL Image or numpy.ndarray (H x W x C) in the range
     [0, 255] to a torch.FloatTensor of shape (C x H x W) in the range [0.0, 1.0].
-
-    Args:
-    - target_type: type of the target tensor.
     """
-    def __init__(self, target_type='uint8'):
-        self.target_type = target_type
-
-    def __call__(self, pic : Image, lbl : Image) -> (torch.Tensor, torch.Tensor):
-        return torch.from_numpy( np.array( pic, dtype=np.float32).transpose(2, 0, 1) ), torch.from_numpy( np.array( lbl, dtype=self.target_type) )
-
-class ExtToV2Tensor(ExtTransforms):
     def __init__(self):
         pass
     def __call__(self, img, lbl):
         return v2.ToImage()(img), v2.ToImage()(lbl)
-    
-class V2Resize(ExtTransforms):
-    def __init__(self, size, interpolation=Image.BILINEAR):
-        self.size = size
-        self.interpolation = interpolation
-    def __call__(self, img, lbl):
-        return v2.Resize(size=self.size, interpolation=self.interpolation)(img), v2.Resize(size=self.size, interpolation=Image.NEAREST)(lbl)
 
-class V2RandomHorizontalFlip(ExtTransforms):
-    def __init__(self, p=0.5):
-        self.p = p
-    def __call__(self, img, lbl):
-        return v2.RandomHorizontalFlip(p=self.p)(img), v2.RandomHorizontalFlip(p=self.p)(lbl)
-    
+######################
+# TRANSFORMS CLASSES #
+######################
+
+# NORMALIZATION
 class V2Normalize(ExtTransforms):
     def __init__(self, mean=[0.485, 0.456, 0.406],std=[0.229, 0.224, 0.225], scale=True):
         self.mean = mean
@@ -131,16 +113,6 @@ class V2Normalize(ExtTransforms):
         img = v2.ToDtype(dtype=torch.float32, scale=self.scale)(img)
         return v2.Normalize(mean=self.mean, std=self.std)(img), lbl
 
-class V2DeNormalize(ExtTransforms):
-    def __init__(self, mean=[0.485, 0.456, 0.406],std=[0.229, 0.224, 0.225]):
-        self.mean = mean
-        self.std = std
-    def __call__(self, img, lbl):
-        return v2.Normalize(mean=[-m/s for m, s in zip(self.mean, self.std)], std=[1/s for s in self.std])(img), lbl
-
-######################
-# TRANSFORMS CLASSES #
-######################
 
 # SIZE ADJUSTMENTS
 # Resize

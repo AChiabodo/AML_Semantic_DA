@@ -7,7 +7,7 @@ import os
 from abc import ABCMeta
 from dataclasses import dataclass
 from typing import Tuple, Optional
-from utils.aug import ExtResize, ExtToTensor, ExtTransforms , ExtCompose
+from utils.aug import ExtTransforms, ExtToV2Tensor
 from datasets.cityscapes import CityScapes
 class BaseGTALabels(metaclass=ABCMeta):
     pass
@@ -140,8 +140,8 @@ class GTA5(torchDataset):
         if self.transforms is not None:
             img, lbl = self.transforms(img, lbl)
         else:
-            img = ExtToTensor()(img)
-            lbl = ExtToTensor()(lbl)
+            img = ExtToV2Tensor()(img)
+            lbl = ExtToV2Tensor()(lbl)
         return img, lbl
 
     @staticmethod
