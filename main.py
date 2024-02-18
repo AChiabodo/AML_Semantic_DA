@@ -181,7 +181,7 @@ def parse_args():
     parse.add_argument('--resume_model_path',
                        type=str,
                        default='',
-                       help='Define the path to the model that should be loaded for training. If void, the best model trained so far will be loaded'
+                       help='Define the path to the model that should be loaded for testing or resuming its training. If void, the best model trained so far will be loaded'
     )
     parse.add_argument('--dataset',
                           type=str,
