@@ -94,7 +94,7 @@ This repository contains the code of our project for the course "Advanced Machin
 
       | Augmentation        | Accuracy _(%)_ | mIoU _(%)_ | Train Time (avg per-epochs) |
       |---------------------|----------------|------------|-----------------------------|
-      | Weak augmentation   | XXXX           | XXXX       | XXXX                        |
+      | Weak augmentation   | 41.1           | 20.7       | 1:35                        |
       | Strong augmentation | 70.3           | 29.7       | 1:40                        |
 
 
