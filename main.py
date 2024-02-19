@@ -268,7 +268,6 @@ def main():
                 V2Normalize(mean=MEAN,std=STD, scale=True)],
                 [ExtResize(size), ExtToV2Tensor(),V2Normalize(mean=MEAN,std=STD, scale=True)])
             target_transformations = transformations
-            #eval_transformations = ExtCompose([ExtResize(size), ExtToTensor(),ExtNormalize(mean=MEAN_CS,std=STD_CS)])
 
     if args.mode == 'save_pseudo' or args.mode == 'test_mbt' :
                 transformations = ExtCompose([ExtResize(size), ExtToV2Tensor(), V2Normalize(scale=True,mean=MEAN_CS,std=STD_CS)])

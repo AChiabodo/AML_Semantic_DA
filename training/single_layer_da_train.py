@@ -71,7 +71,7 @@ def train_da(args, model, optimizer, source_dataloader_train, target_dataloader_
 
     # 3. Loss Functions
     loss_func = torch.nn.CrossEntropyLoss(ignore_index=255)
-    
+    adv_loss = torch.nn.BCEWithLogitsLoss()
     discr_loss_func = torch.nn.BCEWithLogitsLoss()
     
     # 4. Training Loop for each epoch
@@ -164,7 +164,7 @@ def train_da(args, model, optimizer, source_dataloader_train, target_dataloader_
                 # (i.e. we would like D to predict all 0s)
                 
 
-                td_loss_fooled = discr_loss_func(dom, dsource_labels(dom.size(0), 1, dom.size(2),dom.size(3)).cuda())
+                td_loss_fooled = adv_loss(dom, dsource_labels(dom.size(0), 1, dom.size(2),dom.size(3)).cuda())
 
                 # TG.4.4. Scale the discriminator loss by lambda:
                 # to limit the impact of the discriminator on the generator
