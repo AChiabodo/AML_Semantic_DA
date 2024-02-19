@@ -52,12 +52,12 @@ STD = torch.tensor([0.229, 0.224, 0.225])
 """
 Used Training Commands:
     GTA5  :  main.py --dataset GTA5 --data_transformations 0 --batch_size 10 --learning_rate 0.01 --num_epochs 50 --save_model_path trained_models\test_norm_gta --resume False --comment test_norm --mode train --num_workers 4 --optimizer sgd
-    CityScapes : main.py --dataset Cityscapes --data_transformations 0 --batch_size 10 --learning_rate 0.01 --num_epochs 50 --save_model_path trained_models\test_norm_city --resume False --comment test_norm --mode train --num_workers 4 --optimizer sgd
+    CityScapes : main.py --dataset Cityscapes --data_transformations 0 --batch_size 20 --learning_rate 0.01 --num_epochs 50 --save_model_path trained_models\cityscapes --resume False --comment cityscapes --mode train --num_workers 6 --optimizer sgd
     Augm-1: main.py --dataset CROSS_DOMAIN --data_transformations 1 --batch_size 10 --learning_rate 0.01 --num_epochs 50 --save_model_path trained_models\test_augm1_gta --resume False --comment test_augm1 --mode train --num_workers 4 --optimizer sgd 
     Augm-2: main.py --dataset CROSS_DOMAIN --data_transformations 2 --batch_size 10 --learning_rate 0.01 --num_epochs 50 --save_model_path trained_models\test_augm2_gta --resume False --comment test_augm2 --mode train --num_workers 4 --optimizer sgd
-    DA    : main.py --dataset CROSS_DOMAIN --data_transformations 0 --batch_size 6 --learning_rate 0.01 --num_epochs 50 --save_model_path trained_models\norm_da --resume False --comment norm_da --mode train_da --num_workers 4 --optimizer sgd --d_lr 0.001
-    FDA   : main.py --dataset CROSS_DOMAIN --data_transformations 1 --batch_size 10 --learning_rate 0.01 --num_epochs 50 --save_model_path trained_models\norm_fda_augm_0.05 --resume False --comment test_norm_fda_0.05 --mode train_fda --num_workers 4 --optimizer sgd --beta 0.05 --validation_step 5
-    SL    : main.py --dataset CROSS_DOMAIN --data_transformations 0 --batch_size 5 --learning_rate 0.01 --num_epochs 50 --save_model_path trained_models\selflearn_fda0.01 --resume False --comment selflearn_fda0.01 --mode self_learning --num_workers 4 --optimizer sgd --beta 0.01
+    DA    : main.py --dataset CROSS_DOMAIN --data_transformations 2 --batch_size 10 --learning_rate 0.01 --num_epochs 50 --save_model_path trained_models\norm_da --resume False --comment norm_da --mode train_da --num_workers 4 --optimizer sgd --d_lr 0.001
+    FDA   : main.py --dataset CROSS_DOMAIN --data_transformations 0 --batch_size 10 --learning_rate 0.01 --num_epochs 50 --save_model_path trained_models\norm_fda_augm_0.05 --resume False --comment test_norm_fda_0.05 --mode train_fda --num_workers 4 --optimizer sgd --beta 0.05 --validation_step 5
+    SL    : main.py --dataset CROSS_DOMAIN --data_transformations 0 --batch_size 10 --learning_rate 0.01 --num_epochs 50 --save_model_path trained_models\selflearn_fda0.01 --resume False --comment selflearn_fda0.01 --mode self_learning --num_workers 4 --optimizer sgd --beta 0.01
     
 
     MBT  : main.py --mode test_mbt --dataset CROSS_DOMAIN

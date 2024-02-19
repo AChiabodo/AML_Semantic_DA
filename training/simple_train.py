@@ -83,13 +83,13 @@ def train(args, model, optimizer, dataloader_train, dataloader_val, comment=''):
                 # 2.4.2.2. Save the randomly selected image in the batch to tensorboard
                 if i == image_number and epoch % 2 == 0: #saves the first image in the batch to tensorboard
                     print('epoch {}, iter {}, loss1: {}, loss2: {}, loss3: {}'.format(epoch, i, loss1, loss2, loss3))
-                    colorized_predictions , colorized_labels = CityScapes.visualize_prediction(output, label)
-                    colorized_predictions_16 , _ = CityScapes.visualize_prediction(out16, label)
-                    colorized_predictions_32 , _ = CityScapes.visualize_prediction(out32, label)
+                    colorized_predictions , colorized_labels = CityScapes.visualize_prediction(output, label.squeeze(1))
+                    colorized_predictions_16 , _ = CityScapes.visualize_prediction(out16, label.squeeze(1))
+                    colorized_predictions_32 , _ = CityScapes.visualize_prediction(out32, label.squeeze(1))
 
                     writer.add_image('epoch%d/iter%d/predicted_labels' % (epoch, i), np.array(colorized_predictions), step, dataformats='HWC')
                     writer.add_image('epoch%d/iter%d/correct_labels' % (epoch, i), np.array(colorized_labels), step, dataformats='HWC')
-                    original_data = data[0].cpu()* STD[:, None, None] + MEAN[:, None, None]
+                    original_data = ((data[0].cpu()* STD[:, None, None] + MEAN[:, None, None]) * 255)
                     writer.add_image('epoch%d/iter%d/original_data' % (epoch, i), np.array(original_data,dtype='uint8'), step, dataformats='CHW')
                     writer.add_image('epoch%d/iter%d/predicted_labels_16' % (epoch, i), np.array(colorized_predictions_16), step, dataformats='HWC')
                     writer.add_image('epoch%d/iter%d/predicted_labels_32' % (epoch, i), np.array(colorized_predictions_32), step, dataformats='HWC')
