@@ -379,3 +379,129 @@ def load_ckpt(args, model, optimizer = None, discriminator=None, discriminator_o
 		cur_epoch = 0
 	# 5. Return the best score and the current epoch
 	return best_score, cur_epoch
+
+from PIL import Image
+from model.model_stages import BiSeNet
+from datasets.cityscapes import CityScapes
+
+def save_predictions(args, target_dataloader_train,
+							path_cross = 'trained_models\\cross\\best.pth',
+              path_aug = 'trained_models\\aug\\best.pth',
+							path_aug_da = 'trained_models\\aug_da\\best.pth',
+							path_mbt1 = 'trained_models\\mbt1\\best.pth',
+							path_mbt2 = 'trained_models\\mbt2\\best.pth',
+              save_path = 'dataset\\predictions'
+            ):
+
+	with torch.no_grad(): # No need to track the gradients during validation
+
+		# Initialization
+		backbone = args.backbone
+		n_classes = args.num_classes
+		pretrain_path = args.pretrain_path
+		use_conv_last = args.use_conv_last
+				
+		# Create the folder to save the pseudo-labels
+		if not os.path.exists(save_path):
+				os.makedirs(save_path)
+
+		# Initialize the arrays to store the pseudo-labels
+		predicted_labels = [] #np.zeros((len(target_dataloader_train), 512, 1024), dtype=np.uint8)
+		predicted_probs = [] #np.zeros((len(target_dataloader_train), 512, 1024), dtype=np.float32)
+		image_names = []
+
+		print('Pseudo-labels will be saved in: ', save_path)
+
+		# Load the models trained with different betas
+		checkpoint_b1 = torch.load(path_cross)   
+		model1 = BiSeNet(backbone, n_classes, pretrain_path, use_conv_last)
+		model1.load_state_dict(checkpoint_b1['model_state_dict'])
+		model1.cuda()
+		model1.eval()
+
+		checkpoint_b2 = torch.load(path_aug)
+		model2 = BiSeNet(backbone, n_classes, pretrain_path, use_conv_last)
+		model2.load_state_dict(checkpoint_b2['model_state_dict'])
+		model2.cuda()
+		model2.eval()
+
+		checkpoint_b3 = torch.load(path_aug_da)
+		model3 = BiSeNet(backbone, n_classes, pretrain_path, use_conv_last)
+		model3.load_state_dict(checkpoint_b3['model_state_dict'])
+		model3.cuda()
+		model3.eval()
+
+		checkpoint_b4 = torch.load(path_mbt1)
+		model4 = BiSeNet(backbone, n_classes, pretrain_path, use_conv_last)
+		model4.load_state_dict(checkpoint_b4['model_state_dict'])
+		model4.cuda()
+		model4.eval()
+
+		checkpoint_b5 = torch.load(path_mbt2)
+		model5 = BiSeNet(backbone, n_classes, pretrain_path, use_conv_last)
+		model5.load_state_dict(checkpoint_b5['model_state_dict'])
+		model5.cuda()
+		model5.eval()
+
+		print('Models loaded!')
+
+		# Iterate over the validation dataset
+		for i, (data, label) in enumerate(target_dataloader_train):
+
+			if i > 2:
+				break
+			
+			# Load data and label to GPU
+			label = label.type(torch.LongTensor)
+			data = data.cuda()
+			label = label.long().cuda()
+
+			# Forward pass -> original scale output
+			predict1, _, _ = model1(data)
+			predict2, _, _ = model2(data)
+			predict3, _, _ = model3(data)
+			predict4, _, _ = model4(data)
+			predict5, _, _ = model5(data)
+          
+			# For each image in the batch save the predicted label image
+			for j in range(predict1.size(0)):
+
+				# Get the image name
+				path = target_dataloader_train.dataset.images[i*args.batch_size + j]
+				name = path.split('\\')[-1]
+				name = name.split('_leftImg8bit.png')[0] + '_predicted_label'
+				image_names.append(save_path + '\\' + name)
+				
+				# Get the predicted labels
+				output1 = predict1[j].cpu().numpy()
+				output1 = output1.transpose(1, 2, 0)
+				output1 = np.asarray(np.argmax(output1, axis=2), dtype=np.uint8)
+				name1 = name + '_cross.png'
+				
+				output2 = predict2[j].cpu().numpy()
+				output2 = output2.transpose(1, 2, 0)
+				output2 = np.asarray(np.argmax(output2, axis=2), dtype=np.uint8)
+				name2 = name + '_aug.png'
+
+				output3 = predict3[j].cpu().numpy()
+				output3 = output3.transpose(1, 2, 0)
+				output3 = np.asarray(np.argmax(output3, axis=2), dtype=np.uint8)
+				name3 = name + '_aug_da.png'
+
+				output4 = predict4[j].cpu().numpy()
+				output4 = output4.transpose(1, 2, 0)
+				output4 = np.asarray(np.argmax(output4, axis=2), dtype=np.uint8)
+				name4 = name + '_mbt1.png'
+
+				output5 = predict5[j].cpu().numpy()
+				output5 = output5.transpose(1, 2, 0)
+				output5 = np.asarray(np.argmax(output5, axis=2), dtype=np.uint8)
+				name5 = name + '_mbt2.png'
+
+				# Save the images in the folder
+				for output, name in zip([output1, output2, output3, output4, output5], [name1, name2, name3, name4, name5]):
+					output_col = CityScapes.decode_target(output)
+					output_im = Image.fromarray(output_col.astype(np.uint8))
+					output_im.save(os.path.join(save_path, name))
+    
+		print('Prediction saved!')
