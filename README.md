@@ -101,11 +101,19 @@ This repository contains the code of our project for the course "Advanced Machin
 3. **IMPLEMENTING UNSUPERVISED ADVERSARIAL DOMAIN ADAPTATION** - Perform adversarial training with labeled synthetic data (GTA5) and unlabelled real-world data (Cityscapes). Evaluate the model on the validation set of Cityscapes.
 
     ```bash
+    main.py --dataset CROSS_DOMAIN --data_transformations 0 --batch_size 10 --learning_rate 0.01 --num_epochs 50 --save_model_path trained_models\norm_da --resume False --comment norm_da --mode train_da --num_workers 4 --optimizer sgd --d_lr 0.001
+    ```
+    ```bash
+    main.py --dataset CROSS_DOMAIN --data_transformations 1 --batch_size 10 --learning_rate 0.01 --num_epochs 50 --save_model_path trained_models\norm_da_augm1 --resume False --comment norm_da_augm1 --mode train_da --num_workers 4 --optimizer sgd --d_lr 0.001
+    ```
+    ```bash
     main.py --dataset CROSS_DOMAIN --data_transformations 2 --batch_size 10 --learning_rate 0.01 --num_epochs 50 --save_model_path trained_models\norm_da_augm2 --resume False --comment norm_da_augm2 --mode train_da --num_workers 4 --optimizer sgd --d_lr 0.001
     ```
 
     | Augmentation        | Accuracy _(%)_ | mIoU _(%)_ | Train Time (avg per-epochs) |
     |---------------------|----------------|------------|-----------------------------|
+    | No augmentation     | 65.0           | 27.2       | 2:18                        |
+    | Weak augmentation   | 68.9           | 28.4       | 2:32                        |
     | Strong augmentation | 72.1           | 30.9       | 2:40                        |
 
 
