@@ -54,7 +54,7 @@ This repository contains the code of our project for the course "Advanced Machin
 
       | Accuracy _(%)_ | mIoU _(%)_ | Train Time (avg per-epochs) |
       |----------------|------------|-----------------------------|
-      | XXXX           | XXXX       | XXXX                        |
+      | 80.0           | 53.4       | 1:15                        |
 
     - > B - Train on the synthetic dataset.
     
@@ -66,7 +66,7 @@ This repository contains the code of our project for the course "Advanced Machin
 
       | Accuracy _(%)_ | mIoU _(%)_ | Train Time (avg per-epochs) |
       |----------------|------------|-----------------------------|
-      | XXXX           | XXXX       | XXXX                        |
+      | 75.8           | 47.8       | 1:35                        |
 
     - > C1 - Evaluate the domain shift.
 
@@ -78,7 +78,7 @@ This repository contains the code of our project for the course "Advanced Machin
 
       | Accuracy _(%)_ | mIoU _(%)_ |
       |----------------|------------|
-      | XXXX           | XXXX       |
+      | 44.8           | 17.9       |
 
     - > C2 - Evaluate the domain shift performing data augmentation.
 
@@ -115,7 +115,7 @@ This repository contains the code of our project for the course "Advanced Machin
     |---------------------|----------------|------------|-----------------------------|
     | No augmentation     | XXXX           | XXXX       | XXXX                        |
     | Weak augmentation   | XXXX           | XXXX       | XXXX                        |
-    | Strong augmentation | XXXX           | XXXX       | XXXX                        |
+    | Strong augmentation | 72.1           | 30.9       | 2:40                        |
 
 
 4. **IMPROVEMENTS - option c**
@@ -138,9 +138,9 @@ This repository contains the code of our project for the course "Advanced Machin
       ```
       | beta | Accuracy _(%)_ | mIoU _(%)_ | Train Time (avg per-epochs) |
       |------|----------------|------------|-----------------------------|
-      | 0.01 | 68.1           | 25.7       | 1:40                        |
-      | 0.05 | 68.5           | 26.5       | 1:42                        |
-      | 0.09 | 71.6           | 27.6       | 1:40                        |
+      | 0.01 | 69.8           | 30.4       | 1:34                        |
+      | 0.05 | 70.8           | 29.4       | 1:34                        |
+      | 0.09 | 72.9           | 32.6       | 1:34                        |
     
     - > B - Evaluate the performance of the Segmentation Network adapted with MBT.
       
@@ -154,7 +154,7 @@ This repository contains the code of our project for the course "Advanced Machin
 
       | Accuracy _(%)_ | mIoU _(%)_ |
       |----------------|------------|
-      | 72.5           | 30.1       |
+      | 73.1           | 33.0       |
 
     - > C - Implement a self-learning approach.
 
@@ -178,9 +178,9 @@ This repository contains the code of our project for the course "Advanced Machin
       ```
       | beta | Accuracy _(%)_ | mIoU _(%)_ | Train Time (avg per-epochs) |
       |------|----------------|------------|-----------------------------|
-      | 0.01 | 73.0           | 32.0       | 1:40                        |
-      | 0.05 | 73.1           | 32.0       | 1:41                        |
-      | 0.09 | 73.8           | 31.5       | 1:40                        |
+      | 0.01 | 75.7           | 36.7       | 1:34                        |
+      | 0.05 | 75.2           | 36.4       | 1:34                        |
+      | 0.09 | 75.1           | 36.2       | 1:34                        |
 
     - > D - Evaluate the performance of the Segmentation Network trained with self-learning adapted with an additional step of MBT.
 
@@ -192,5 +192,5 @@ This repository contains the code of our project for the course "Advanced Machin
 
       | Accuracy _(%)_ | mIoU _(%)_ |
       |----------------|------------|
-      | 74.5           | 33.6       |
+      | 75.9           | 37.5       |
    
