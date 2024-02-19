@@ -27,42 +27,12 @@ from training.fda_self_learning_train import train_self_learning_fda
 from eval import val
 
 # GLOBAL VARIABLES
-# Image mean of the Cityscapes dataset (used for normalization)
-MEAN_CS = torch.tensor([0.4079, 0.4575, 0.4811])
-STD_CS = torch.tensor([1.0, 1.0, 1.0])
-
+# Image mean of the ImageNet dataset (used for normalization)
 MEAN = torch.tensor([0.485, 0.456, 0.406])
 STD = torch.tensor([0.229, 0.224, 0.225])
-"""
-  LAST TRAINING TRIALS:
-
-  --dataset GTA5 --data_transformations 0 --batch_size 10 --learning_rate 0.01 --num_epochs 50 --save_model_path trained_models\test_print_features --resume False --comment test_print_features--mode train
-  
-  --mode train_da --dataset CROSS_DOMAIN --save_model_path trained_models\adv_single_layer_lam0.001_softmax_resumed --comment adv_single_layer_lam0.005_softmax --data_transformation 0 --batch_size 4 --learning_rate 0.002 --num_workers 4 --optimizer sgd --resume True --resume_model_path trained_models\avd_single_layer_lam0.005_softmax\best.pth
-
-  & C:/Users/aless/Documents/Codice/AML_Semantic_DA/.venv/Scripts/python.exe c:/Users/aless/Documents/Codice/AML_Semantic_DA/main.py 
-  --mode train --dataset CROSS_DOMAIN --save_model_path trained_models\bea_data_augm_test --comment bea_data_augm_test --data_transformation 2 --batch_size 5 --num_workers 4 --optimizer adam --crop_height 526 --crop_width 957
-
-  & C:/Users/aless/Documents/Codice/AML_Semantic_DA/.venv/Scripts/python.exe c:/Users/aless/Documents/Codice/AML_Semantic_DA/main.py --dataset CROSS_DOMAIN --data_transformations 0 --batch_size 6 --learning_rate 0.01 --num_epochs 50 --save_model_path trained_models\norm_da --resume False --comment norm_da --mode train_da --num_workers 4 --optimizer sgd --d_lr 0.001
-
-  C:/Users/aless/Documents/Codice/AML_Semantic_DA/.venv/Scripts/python.exe c:/Users/aless/Documents/Codice/AML_Semantic_DA/main.py --dataset CROSS_DOMAIN --data_transformations 0 --batch_size 10 --learning_rate 0.01 --num_epochs 50 --save_model_path trained_models\norm_da_augm --resume False --comment norm_da_augm --mode train_da --num_workers 4 
---optimizer sgd --d_lr 0.001  
-  """
-
-"""
-Used Training Commands:
-    GTA5  :  main.py --dataset GTA5 --data_transformations 0 --batch_size 10 --learning_rate 0.01 --num_epochs 50 --save_model_path trained_models\test_norm_gta --resume False --comment test_norm --mode train --num_workers 4 --optimizer sgd
-    CityScapes : main.py --dataset Cityscapes --data_transformations 0 --batch_size 20 --learning_rate 0.01 --num_epochs 50 --save_model_path trained_models\cityscapes --resume False --comment cityscapes --mode train --num_workers 6 --optimizer sgd
-    Augm-1: main.py --dataset CROSS_DOMAIN --data_transformations 1 --batch_size 10 --learning_rate 0.01 --num_epochs 50 --save_model_path trained_models\test_augm1_gta --resume False --comment test_augm1 --mode train --num_workers 4 --optimizer sgd 
-    Augm-2: main.py --dataset CROSS_DOMAIN --data_transformations 2 --batch_size 10 --learning_rate 0.01 --num_epochs 50 --save_model_path trained_models\test_augm2_gta --resume False --comment test_augm2 --mode train --num_workers 4 --optimizer sgd
-    DA    : main.py --dataset CROSS_DOMAIN --data_transformations 2 --batch_size 10 --learning_rate 0.01 --num_epochs 50 --save_model_path trained_models\norm_da --resume False --comment norm_da --mode train_da --num_workers 4 --optimizer sgd --d_lr 0.001
-    FDA   : main.py --dataset CROSS_DOMAIN --data_transformations 0 --batch_size 10 --learning_rate 0.01 --num_epochs 50 --save_model_path trained_models\norm_fda_augm_0.05 --resume False --comment test_norm_fda_0.05 --mode train_fda --num_workers 4 --optimizer sgd --beta 0.05 --validation_step 5
-    SL    : main.py --dataset CROSS_DOMAIN --data_transformations 0 --batch_size 10 --learning_rate 0.01 --num_epochs 50 --save_model_path trained_models\selflearn_fda0.01 --resume False --comment selflearn_fda0.01 --mode self_learning --num_workers 4 --optimizer sgd --beta 0.01
-    
-
-    MBT  : main.py --mode test_mbt --dataset CROSS_DOMAIN
-    Eval : main.py --mode test --dataset CROSS_DOMAIN --save_model_path trained_models\test_norm_fda --comment test_norm_fda --num_workers 4
-"""
+# Image mean of the Cityscapes dataset (used for normalization in FDA)
+MEAN_CS = torch.tensor([0.4079, 0.4575, 0.4811])
+STD_CS = torch.tensor([1.0, 1.0, 1.0])
 
 def parse_args():
     """Parse input arguments from command line"""
@@ -343,7 +313,6 @@ def main():
     
 
     # 4. Dataloaders Setup
-
     source_dataloader_train = DataLoader(train_dataset,
                     batch_size=args.batch_size,
                     shuffle=False,
