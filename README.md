@@ -35,7 +35,7 @@ This repository contains the code of our project for the course "Advanced Machin
 
 - `eval.py`: code to evaluate the performance of the models on the target domain.
 - `main.py`: code to initialize the training/testing process according to the chosen arguments.
-- `test_style_transfer.ipynb`: code to perform a quick test of the style transfer algorithm and visualize the results.
+- `test_style_transfer.ipynb`: code to perform a quick test of the FDA style transfer and the strong data aumentation.
 - `Project Overview.pdf`: the compiled version of the original project requirements file.
 
 ## Requirements
