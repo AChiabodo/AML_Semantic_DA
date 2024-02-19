@@ -36,6 +36,7 @@ This repository contains the code of our project for the course "Advanced Machin
 - `eval.py`: code to evaluate the performance of the models on the target domain.
 - `main.py`: code to initialize the training/testing process according to the chosen arguments.
 - `test.ipynb`: code to perform a quick test of some of the implemented functions.
+- `Project Overview.pdf`: the compiled version of the original project requirements file.
 
 ## Requirements
 - The two datasets are not included in the repository, but they can be downloaded from [datasets_drive_link](https://drive.google.com/drive/u/0/folders/1iE8wJT7tuDOVjEBZ7A3tOPZmNdroqG1m).
@@ -94,18 +95,10 @@ This repository contains the code of our project for the course "Advanced Machin
       | Augmentation        | Accuracy _(%)_ | mIoU _(%)_ | Train Time (avg per-epochs) |
       |---------------------|----------------|------------|-----------------------------|
       | Weak augmentation   | XXXX           | XXXX       | XXXX                        |
-      | Strong augmentation | XXXX           | XXXX       | XXXX                        |
+      | Strong augmentation | 70.3           | 29.7       | 1:40                        |
 
 
 3. **IMPLEMENTING UNSUPERVISED ADVERSARIAL DOMAIN ADAPTATION** - Perform adversarial training with labeled synthetic data (GTA5) and unlabelled real-world data (Cityscapes). Evaluate the model on the validation set of Cityscapes.
-
-    ```bash
-    main.py --dataset CROSS_DOMAIN --data_transformations 0 --batch_size 10 --learning_rate 0.01 --num_epochs 50 --save_model_path trained_models\norm_da --resume False --comment norm_da --mode train_da --num_workers 4 --optimizer sgd --d_lr 0.001
-    ```
-
-    ```bash
-    main.py --dataset CROSS_DOMAIN --data_transformations 1 --batch_size 10 --learning_rate 0.01 --num_epochs 50 --save_model_path trained_models\norm_da_augm1 --resume False --comment norm_da_augm1 --mode train_da --num_workers 4 --optimizer sgd --d_lr 0.001
-    ```
 
     ```bash
     main.py --dataset CROSS_DOMAIN --data_transformations 2 --batch_size 10 --learning_rate 0.01 --num_epochs 50 --save_model_path trained_models\norm_da_augm2 --resume False --comment norm_da_augm2 --mode train_da --num_workers 4 --optimizer sgd --d_lr 0.001
@@ -113,8 +106,6 @@ This repository contains the code of our project for the course "Advanced Machin
 
     | Augmentation        | Accuracy _(%)_ | mIoU _(%)_ | Train Time (avg per-epochs) |
     |---------------------|----------------|------------|-----------------------------|
-    | No augmentation     | XXXX           | XXXX       | XXXX                        |
-    | Weak augmentation   | XXXX           | XXXX       | XXXX                        |
     | Strong augmentation | 72.1           | 30.9       | 2:40                        |
 
 
@@ -178,9 +169,9 @@ This repository contains the code of our project for the course "Advanced Machin
       ```
       | beta | Accuracy _(%)_ | mIoU _(%)_ | Train Time (avg per-epochs) |
       |------|----------------|------------|-----------------------------|
-      | 0.01 | 75.7           | 36.7       | 1:34                        |
+      | 0.01 | 75.7           | 36.7       | 1:36                        |
       | 0.05 | 75.2           | 36.4       | 1:34                        |
-      | 0.09 | 75.1           | 36.2       | 1:34                        |
+      | 0.09 | 75.1           | 36.2       | 1:32                        |
 
     - > D - Evaluate the performance of the Segmentation Network trained with self-learning adapted with an additional step of MBT.
 
