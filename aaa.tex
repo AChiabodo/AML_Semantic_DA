@@ -5,7 +5,7 @@
 \documentclass[10pt,twocolumn,letterpaper]{article}
 
 %%%%%%%%% PAPER TYPE  - PLEASE UPDATE FOR FINAL VERSION
-\usepackage[review]{cvpr}      % To produce the REVIEW version
+\usepackage[final]{cvpr}      % To produce the REVIEW version
 %\usepackage{cvpr}              % To produce the CAMERA-READY version
 %\usepackage[pagenumbers]{cvpr} % To force page numbers, e.g. for an arXiv version
 
@@ -44,165 +44,158 @@
 
 \begin{document}
 
-\begin{titlepage}
-    \centering
-    \includegraphics[width=0.9\textwidth]{Polito.png} % Change "Polito.png" to the filename of your image
-    \vspace{1cm}
-    
-    \Huge Real Time Domain Adaptation in Semantic Segmentation
-    \vspace{0.5cm}
-    
-    \Large
-    \begin{tabular}{l}
-        Elena Buccoliero \quad Alessandro Chiabodo \quad Beatrice Occhiena \\
-    \end{tabular}
+%%%%%%%%% TITLE - PLEASE UPDATE
+\title{Real Time Domain Adaptation in Semantic Segmentation}
 
-    \begin{tabular}{l}
-        s317320 \quad \quad \quad \quad \quad \quad s309234 \quad \quad \quad \quad \quad \quad s314971 \\
-    \end{tabular}
-    
-    \vspace{0.5cm}
-    
-    \large 19 February 2024 % Manually specify the date here
-
-\end{titlepage}
-
-
+\author{
+Elena Buccoliero\\ 
+Politecnico di Torino\\ 
+s317320\\  
+{\tt\small s317320@studenti.polito.it}
+% For a paper whose authors are all at the same institution,
+% omit the following lines up until the closing ``}''.
+% Additional authors and addresses can be added with ``\and'',
+% just like the second author.
+% To save space, use either the email address or home page, not both
+\and
+Alessandro Chiabodo\\
+Politecnico di Torino\\ 
+s309234\\
+{\tt\small s309234@studenti.polito.it}
+\and
+Beatrice Occhiena\\ 
+Politecnico di Torino\\ 
+s314971\\  
+{\tt\small s314971@studenti.polito.it}
+}
+\maketitle
 
 %%%%%%%%% ABSTRACT %%%%%%%%%
 \begin{abstract}
-    This paper explores the realm of real-time domain adaptation in semantic segmentation, focusing on the implementation of an adversarial domain adaptation algorithm. The primary goal is to familiarize the reader with the challenges of adapting semantic segmentation networks to different domains and to propose and evaluate a novel approach. The project involves replicating experiments, implementing data augmentation, domain adaptation, and testing variations to improve overall performance like application of Fourier Transform.
-    \\Code:\\\url{https://github.com/AChiabodo/AML_Semantic_DA}.
+    This paper explores the realm of real-time domain adaptation in semantic segmentation, focusing on the implementation and comparison of two domain adaptation algorithms. The main objective is to understand the challenges of adapting semantic segmentation networks to various domains and to evaluate different approaches. The project involves replicating experiments, implementing data augmentation and domain adaptation techniques, and testing variations to improve overall performance. The code implementation of the project is available at: \url{https://github.com/AChiabodo/AML_Semantic_DA}.
 \end{abstract}
 
 %%%%%%%%% BODY TEXT %%%%%%%%%
 \section{Introduction}
 \label{sec:intro}
 
-Semantic segmentation is a critical component of computer vision systems, enabling machines to comprehend visual scenes at a granular level by assigning semantic labels to individual pixels. In dynamic environments, where scenes evolve rapidly, achieving real-time semantic segmentation necessitates robust adaptation to diverse domains. This adaptation is crucial because the characteristics of the visual data may vary significantly between different environments due to factors such as lighting conditions, weather, and camera perspectives.
-The primary goal of this project is to delve deeply into the real-time semantic segmentation and develop solutions to overcome the challenges posed by domain shifts. Domain shifts occur when there is a misalignment between the distribution of data in the training domain (where the model is trained) and the target domain (where it is deployed). Such shifts can degrade the performance of semantic segmentation models, leading to errors and inaccuracies in the segmentation results.
-To address these challenges, the project focuses on the implementation of different domain adaptation techniques, which will then be compared to highlight their strengths and weaknesses in an area, that of real-time semantic segmentation, which is increasingly relying on the use of synthetic datasets for model training and therefore faces the challenge of domain adaptation.
-The first, Adversarial domain adaptation, aims to align the feature representations of the source and target domains by learning domain-invariant features. This process involves training a domain discriminator alongside the segmentation model, which distinguishes between features from the source and target domains. The segmentation model is then trained to generate features that are indistinguishable to the discriminator, thereby minimizing the domain gap and improving generalization performance on unseen target domain data.
-On the other hand, Fourier Domain Adaptation offers an alternative to Adversarial Domain Adaptation that promises to be more stable and lighter, as it no longer requires a discriminator to train our model, but relies on transformations applied directly to the image to make it as similar as possible to the target, reducing the domain shift that our model undergoes in changing datasets.
-In addition to the technical aspects, the project also considers practical challenges associated with real-time semantic segmentation, such as computational efficiency and training complexity. Developing lightweight segmentation models that can achieve real-time performance while maintaining high accuracy is essential for practical applications in domains such as autonomous driving, robotics, and augmented reality.
-Overall, the project aims to analyze the state-of-the-art in real-time semantic segmentation by leveraging domain adaptation techniques to improve model robustness and generalization across diverse environments.
+Semantic segmentation is a key task in computer vision that enables machines to understand visual scenes at a pixel level by assigning semantic labels to each pixel. 
+In dynamic environments, where scenes evolve rapidly, achieving real-time semantic segmentation necessitates robust adaptation to different domains. This adaptation is crucial because the characteristics of the visual data may vary significantly between different environments due to factors such as lighting conditions, weather, and camera perspectives.
+
+\begin{figure}[h]
+    \centering
+    \includegraphics[width=0.85\linewidth]{fine_semantic_label.png}
+    \caption{Example of semantic labels for a real-world street image.}
+    \label{fig:fine_semantic_label}
+\end{figure}
+
+The primary goal of this project is to is to explore the problem of real-time semantic segmentation and propose solutions to cope with the domain shifts that occur when the data distribution in the training domain (where the model is trained) differs from the data distribution in the target domain (where the model is applied). These domain shifts can negatively affect the performance of semantic segmentation models, resulting in errors and inaccuracies in the segmentation outputs.
+
+To tackle these challenges, in our project we implement and compare two different domain adaptation techniques that aim to reduce this gap and enhance the model’s ability to generalize to unseen target domain data. The first technique is Unsupervised Adversarial Domain Adaptation, which trains a generator and a discriminator to learn domain-invariant features. The second one is Fourier Domain Adaptation, which achieves a simpler image-to-image style translation.
+
+Besides the theoretical aspects, the project also considers the practical challenges of real-time semantic segmentation, such as computational efficiency and training complexity. We aim to develop lightweight segmentation models that can achieve real-time performance while maintaining high accuracy, which is crucial for practical applications in domains such as autonomous driving, robotics, and augmented reality.
+
 
 %------------------------------------------------------------------------
 \section{Related Works }
 
-
-Before delving into the project details, it is essential to review related works in the field of semantic segmentation, real-time networks, domain adaptation and implementation of various approaches, including \cite{SemanticSeg}, \cite{Bisenet}, \cite{RealTimeBiSeNet}, \cite{VisDomAd}, \cite{City}, \cite{GroundTruth}, \cite{DomAd}, \cite{fda} provide insights into the techniques, datasets, and challenges associated with these tasks. Understanding the existing literature is crucial for laying the foundation for the proposed project.
+Before delving into the project details, it is essential to review related works in the field of semantic segmentation, real-time networks, domain adaptation and implementation of various approaches.
 
 %-------------------------------------------------------------------------
 \subsection{Semantic Segmentation}
 
-Semantic segmentation, a crucial task in computer vision, involves pixel-wise labeling of images to provide not just class labels but also localization at the original image resolution. In recent years, deep learning-based methods have spearheaded significant advancements in 2D semantic segmentation \cite{SemanticSeg}. This survey delves into the latest scientific breakthroughs in semantic segmentation, particularly focusing on 2D image data. The analysis encompasses examination of public image datasets, evaluation leaderboards, and techniques utilized in performance assessment.
-The evolution of semantic segmentation methods is categorized into three key periods: the pre- and early deep learning era, the fully convolutional era, and the post-FCN era. Notably, recent state-of-the-art methods heavily rely on deep neural networks, with the transformation of classification CNNs (e.g., AlexNet, VGG, ResNet) into fully convolutional networks (FCNs) pioneered by Long et al. Various techniques have since emerged to enhance these models, such as leveraging contextual information or enlarging receptive fields.
-However, training these advanced networks requires dense pixel annotations, leading to the exploration of weakly and semi-supervised approaches to mitigate labeling costs. Additionally, synthetic datasets like GTA5\cite{GroundTruth} and SYNTHIA have been constructed to alleviate annotation burdens. Although less costly, models trained solely on synthetic data often struggle to generalize to real-world scenarios due to significant domain shifts.
-To bridge this performance gap, domain adaptation techniques are employed to align synthetic and real-world image domains effectively. Despite challenges, such as appearance differences, ongoing efforts aim to synthesize more realistic images and narrow the domain shift through domain adaptation, ultimately advancing the performance of semantic segmentation models across diverse environments.
+As cited in \cite{SemanticSeg}, the field of 2D semantic segmentation has seen substantial improvements due to the advent and application of deep learning methodologies. These advancements have revolutionized the way we label each pixel in an image to accurately identify objects and their boundaries, thereby enhancing our understanding and interpretation of visual data.
+
+State-of-the-art methodologies heavily depend on deep neural networks, with innovations such as the transformation of classification CNNs into FCNs. The training of these advanced models typically necessitates dense pixel annotations, leading to the exploration of weakly and semi-supervised approaches to mitigate labeling costs. Synthetic datasets like GTA5 and SYNTHIA have been developed to alleviate annotation burdens, but models trained exclusively on synthetic data often face difficulties in generalizing to real-world scenarios due to domain shifts. To counteract this, domain adaptation techniques are utilized to effectively align synthetic and real-world image domains. Despite the challenges, ongoing efforts are aimed at synthesizing more realistic images and narrowing the domain gap, ultimately enhancing the performance of semantic segmentation models across diverse environments.
 
 %-------------------------------------------------------------------------
 \subsection{BiSeNet}
 
-In the realm of real-time semantic segmentation, BiSeNet has emerged as a prominent contender, distinguished by its two-stream architecture designed to seamlessly integrate spatial details and contextual information. Despite its acclaim, BiSeNet has faced scrutiny due to its computational intensity and reliance on pretrained classification backbones. To address these concerns, researchers have introduced the Short-Term Dense Concatenate (STDC) network as a refined alternative, optimizing BiSeNet's architecture for enhanced efficiency.
-The hallmark of BiSeNet lies in its dual-path structure, where a Spatial Path captures fine-grained spatial features while a Context Path aggregates contextual information from a lightweight classification backbone. However, the reliance on pretrained backbones and the computational overhead have prompted the exploration of alternative approaches.\cite{BiSenet}
-Enter STDC-Seg, a strategic refinement of BiSeNet's design. STDC-Seg replaces the classification backbone and Spatial Path with a novel Short-Term Dense Concatenate Module, which not only extracts deep features with a scalable receptive field but also incorporates multi-scale information seamlessly.
-The evolution from BiSeNet to STDC-Seg marks a significant step forward in real-time semantic segmentation. STDC-Seg streamlines the segmentation process, eliminating redundancy and improving computational efficiency without compromising performance. Experimental evaluations on benchmark datasets such as cityscapes confirm the superiority of STDC-Seg over BiSeNet, especially in terms of speed-accuracy trade-offs.\cite{RealTimeBiSeNet}
-While BiSeNet laid the groundwork for real-time semantic segmentation, the refinements introduced by STDC-Seg move the field forward. These advances not only address the limitations of BiSeNet, but also open avenues for future exploration, underscoring the ongoing quest for efficient and effective semantic understanding in real-time applications.
+BiSeNet \cite{BiS}, renowned for its two-stream architecture balancing spatial detail and contextual insight, has recently been critiqued for its computational requirements and dependency on pretrained backbones. In response, the STDC-Seg network \cite{RealTimeBiSeNet} emerges as a refined alternative, replacing BiSeNet's backbone and Spatial Path with the innovative Short-Term Dense Concatenate Module. This evolution streamlines real-time semantic segmentation, enhancing efficiency while maintaining performance. Experimental results, particularly on datasets like Cityscapes, affirm STDC-Seg's superiority over BiSeNet in speed and accuracy. While BiSeNet paved the way, STDC-Seg's advancements signal progress, pointing toward more efficient and effective real-time semantic understanding.
 
 %-------------------------------------------------------------------------
-\subsection{Domain Adaptation}
+\subsection{Unsupervised Domain Adaptation}
 
-Domain adaptation overcomes the challenges of different data distributions between training and test domains in machine learning. While classical machine learning assumes independent and identically distributed data for training and test sets, real-world scenarios often exhibit disparities due to factors such as different data sources or outdated training data. Unsupervised domain adaptation, where labels are only accessible in the source domain, develops methods to deal with this imbalance.\cite{DomAd}
-For image classification, domain adaptation techniques aim to mitigate the domain-shift problem between source and target domains by aligning feature distributions. Various approaches have been proposed, leveraging different loss functions or classifiers. Notably, the PixelDA method transfers source images to the target domain to augment the target dataset for training.
-However, domain adaptation for pixel-level prediction tasks, such as semantic segmentation, has not been extensively explored. Recent efforts, like those by Hoffman et al., introduce adversarial learning techniques, like DANN, applied in a fully-convolutional manner along with additional category constraints. Other methods focus on adapting synthetic-to-real or cross-city images, employing class-wise adversarial learning or label transfer mechanisms.
-While feature space adaptation has shown success in image classification, it remains challenging for pixel-level tasks like semantic segmentation. This paper proposes an efficient domain adaptation algorithm leveraging adversarial learning in the output space, capitalizing on the structured nature of pixel-level predictions that contain spatial and local information.
+Domain adaptation addresses the issue of disparate data distributions between the training and testing domains in machine learning \cite{CD}. Traditional methods typically assume identical distributions, but real-world scenarios often exhibit variations due to a variety of data sources or outdated training data. Unsupervised domain adaptation seeks to resolve this by aligning feature distributions in the absence of labels in the target domain.\\
+In the realm of image classification, strategies are employed to alleviate domain-shift problems by aligning features. Techniques such as PixelDA augment target datasets using source images. However, domain adaptation for pixel-level tasks like semantic segmentation is still under development.  Recent endeavors have introduced adversarial learning techniques, such as DANN, for fully-convolutional adaptation, or have concentrated on synthetic-to-real or cross-city adaptation with class-wise adversarial learning. This study \cite{DomAd} puts forth an efficient domain adaptation algorithm that utilizes adversarial learning in the output space, specifically designed for pixel-level tasks like semantic segmentation, which necessitate the preservation of spatial and local information.
 
 %-------------------------------------------------------------------------
 \subsection{Fourier Domain Adaptation}
 
-\begin{figure}[t]
+\begin{figure}[h]
   \centering
    \includegraphics[width=0.9\linewidth]{FDA.png}
    \caption{Spectral Transfer: Mapping a source image to a target “style” without altering semantic content. A randomly sampled target
-image provides the style by swapping the low-frequency component of the spectrum of the source image with its own. The outcome “source
-image in target style” shows a smaller domain gap perceptually.
+image provides the style by swapping the low-frequency component of the spectrum of the source image with its own. The outcome, a source
+image in target style, shows a smaller domain gap perceptually.
    }
    \label{fig:fda}
 \end{figure}
 
-Fourier Domain Adaptation (FDA) \cite{fda} is an unsupervised domain adaptation technique in which the discrepancy between the source and target distributions is reduced by swapping the low frequency spectrum  of the source images with the corresponding spectrum of the target images. 
+Fourier Domain Adaptation (FDA) \cite{fda} is an additional unsupervised domain adaptation technique in which the discrepancy between the source and target distributions is reduced by swapping the low frequency spectrum  of the source images with the corresponding spectrum of the target images. 
 This process is accomplished through the application of the Fourier Transform and its corresponding inverse.
-
 Contrary to numerous state-of-the-art methods that require complex adversarial training, FDA does not require any training to perform domain alignment. Despite its simplicity, it achieves state-of-the-art performance on current benchmarks when integrated with a standard semantic segmentation model. 
-
-In addition, FDA introduces a robust entropy minimization regularization and a multi-band transfer scheme to further enhance its performance. This multi-scale approach, which averages the predictions from models trained with different spectral neighborhood sizes, has proven to be particularly effective.
+In addition, FDA introduces a robust entropy minimization regularization and a multi-band transfer scheme to further enhance its performance. This multi-scale approach, which averages the predictions from models trained with different spectral neighborhood sizes, has proven to be particularly effective.\\
 
 
 
 %------------------------------------------------------------------------
-\section{Project Overview}
-According to project demands, we initially evaluated the capabilities of BiSeNet by training our model on the Cityscapes and GTA datasets, using pre-trained weights from Imagenet. We then assessed the results on the same dataset used for training, providing us with baselines for future comparison with domain adaptation.
-
-The need for domain adaptation techniques arose when we attempted to apply the model trained on one dataset (GTA) to our target (cityscapes) without any modification to its previous training. The result was a collapse in the accuracy of the result and, in many cases, the inability of the model to recognise basic structures in the test image.
-
-Initial improvement was achieved by applying various levels of data enhancement to try and bring the two domains as close together as possible.
-In particular, the addition of colour and saturation transformations brought a significant improvement in overall performance, highlighting that the two datasets used had significant differences, particularly in the colour domain.
-
-Slightly better results were obtained with Adversarial Domain Adaptation, but the instability of the training and the general complexity, combined with the not very good results in our case, led us to look for valid alternatives.
-
-Finally, through the use of Fourier domain fitting, which is based on the modification of certain frequencies by Fast Fourier Transform, we were able to surpass the previously obtained results and improve them significantly through the model ensembling and self-learning techniques described in \cite{fda}.
-
+\section{Method}
 \label{sec:formatting}
-
-
-\subsection{Data Augmentation}
-In order to optimize the generalization capabilities of our model and the performance of the domain adaptation, we used three steps of data augmentation, where the first only applies a normalization with mean and standard deviation computed directly from the cityscapes, then the second also adds the resizing of the image and a random crop, the third also adds some visual domain adaptation techniques such as Gaussian Blur and Color Jitter to reduce the domain shift between the two datasets.
-
-
-%---------------------------------------------------------------------------
-
-\subsection{Domain Adaptation}
 
 \begin{figure*}[t]
   \centering
    \includegraphics[width=0.9\linewidth]{Domain Adaptation.png}
    \caption{
-   Algorithmic overview. Given images with the sizeH byW in source and target domains, we pass them through the segmentation
-network to obtain output predictions. For source predictions with C categories, a segmentation loss is computed based on the source ground
-truth. To make target predictions closer to the source ones, we utilize a discriminator to distinguish whether the input is from the source or
-target domain. Then an adversarial loss is calculated on the target prediction and is back-propagated to the segmentation network. We call
-this process as one adaptation module, and we illustrate our proposed multi-level adversarial learning by adopting two adaptation modules
-at two different levels here.}
+   Algorithmic overview. Given images of size HxW in the source and target domains, we pass them through the segmentation network in order to obtain predictions of the output. For source predictions with C categories, a segmentation loss is calculated based on the source ground truth. To make the target predictions closer to the source predictions, we use a discriminator to distinguish whether the input is from the source or target domain. Then, an adversarial loss is computed on the target prediction and backpropagated to the segmentation network. We refer to
+this process as an adaptation module, and we illustrate our proposed multi-level adversarial learning with two adaptation modules at two different levels}
    \label{}
 \end{figure*}
 
+TODO !!!!
 
-Following \cite{DomAd}, we implemented a domain adaptation method based on single-level generative adversarial training, using two modules: a fully convolutional discriminator $D$ and a generator $G$ which will be our model.
+In this project, to address the challenge of semantic segmentation, we utilize BiSeNet, a cutting-edge architecture renowned for its effectiveness in pixel-level tasks.
+BiSeNet \cite{BiS} stands out due to its innovative two-stream architecture, strategically designed to seamlessly integrate spatial details and contextual information. This dual-path structure comprises a Spatial Path, responsible for capturing fine-grained spatial features, and a Context Path, which aggregates contextual information from a lightweight classification backbone. By leveraging these complementary streams, BiSeNet can achieve accurate and detailed semantic segmentation results.
 
-As a first step, we use the source images (with annotations) to optimise our model, as in normal training. Then we also feed the model the target images, which have no annotations and are therefore useless for improving the model without adversarial training. We can now use both predictions as input to the discriminator, which, following the adversarial loss Eq.(\ref{eq:domAd_adversarial_loss}), will propagate the gradient to the model, pushing it to make predictions that are as similar as possible between the two domains.
+One of the notable aspects of BiSeNet is its ability to balance performance and computational efficiency. While previous approaches may have struggled with computational intensity or reliance on pretrained classification backbones, BiSeNet addresses these concerns by optimizing its architecture for enhanced efficiency. However, to further refine BiSeNet and overcome its limitations, our project introduces a strategic refinement known as the Short-Term Dense Concatenate (STDC) network \cite{RealTimeBiSeNet}.
 
-For the segmentation network training, the overall loss will be given by Eq.(\ref{eq:domAd_total_loss}) which is the sum of the cross-entropy loss Eq.(\ref{eq:domAd_cross_entropy}) used during the training of the model on the source images and the adversarial loss Eq.(\ref{eq:domAd_adversarial_loss}) used to fool the discriminator and train the model to bring the two domains closer together.
+STDC-Seg, the refined version of BiSeNet, replaces the classification backbone and Spatial Path with a novel Short-Term Dense Concatenate Module. This module not only extracts deep features with a scalable receptive field but also seamlessly incorporates multi-scale information. By doing so, STDC-Seg streamlines the segmentation process, eliminating redundancy, and improving computational efficiency without compromising performance.
+
+In our project, the utilization of BiSeNet and its refinement through STDC allows us to achieve good results in real-time applications. By leveraging the strengths of BiSeNet's architecture and enhancing its efficiency through strategic refinements, we can effectively tackle the challenges posed by semantic segmentation tasks.
+
+
+
+%---------------------------------------------------------------------------
+
+\subsection{Unsupervised Adversarial Domain Adaptation}
+
+TODO !!!! Check if correct LOSS functions. CROSS ENTROPY LOSS missing??? **************************
+
+Following \cite{DomAd}, we implement a domain adaptation method based on single-level generative adversarial training, using two modules: a generator $G$ that is our segmentation model, and a discriminator $D$ that is a fully convolutional classifier.
+
+We start by train our model on the source images with labels, as usual. Then we also feed the model the target images without annotations, which can not help the model improve without the adversarial training. At this point, we use the predictions from both domains as inputs for the discriminator, which tries to tell them apart. The discriminator’s feedback helps the model learn to generate similar predictions for both domains, according to the adversarial loss Eq.(\ref{eq:domAd_adversarial_loss}).
+
+For the segmentation network training, the total loss is given by Eq.(\ref{eq:domAd_total_loss}), which combines the cross-entropy loss Eq.(\ref{eq:domAd_cross_entropy}), used during the training of the model on the source images, and the adversarial loss Eq.(\ref{eq:domAd_adversarial_loss}), used to fool the discriminator and train the model to bring the two domains closer together.
 Note that in Eq.(\ref{eq:domAd_total_loss}) we use $\lambda_{\text{adv}}$ to balance the two losses during training.\\
 
 \begin{equation}
-L_(I_s,I_t) =L_{\text{adv}}(I_s) + \lambda_{\text{adv}} L_{\text{adv}}(I_t)
+L_(I_s,I_t) =L_{\text{seg}}(I_s) + \lambda_{\text{adv}} L_{\text{adv}}(I_t)
 \label{eq:domAd_total_loss}
-\end{equation}
-\begin{equation}
-L_{\text{adv}}(I_t) = -\sum_{h,w} \log(D(P_t)^{(h,w,1)})
-\label{eq:domAd_adversarial_loss}
 \end{equation}
 \begin{equation}
 L_{\text{seg}}(I_t) = -\sum_{h,w} \sum_{c \in C} Y_s^{(h,w,c)} \log(P_s^{(h,w,c)})
 \label{eq:domAd_cross_entropy}
 \end{equation}
+\begin{equation}
+L_{\text{adv}}(I_t) = -\sum_{h,w} \log(D(P_t)^{(h,w,1)})
+\label{eq:domAd_adversarial_loss}
+\end{equation}
 
-For a focus on the two modules used in the adversarial training, we have :
+Here are the descriptions of the two components in the adversarial training:
 
-\textbf{Generator}: a segmentation model that is trained to excel in the source domain, while at the same time trying to trick the discriminator into perceiving its predictions in the target domain as coming from the source domain, thus closing the domain shift. Unlike \cite{DomAd} we used BiSeNet as segmentation network,as say before, which provides performance suitable for real-time use.
+\textbf{Generator}: A segmentation model that performs well on the source domain and tries to fool the discriminator by making its predictions on the target domain look like they are from the source domain, thus reducing the domain gap. Unlike \cite{DomAd}, we use BiSeNet as segmentation network, which provides a fast speed and a good accuracy.
 
-\textbf{Discriminator:} serves as a binary classifier and is trained to discriminate between the generator's predictions on the source and target domains. For its architecture, following \cite{DomAd}, we adopt a fully convolutional approach consisting of 5 convolutional layers with a $4x4$ kernel and stride 2, each followed by a leaky ReLU (except for the last layer). Then an upsampling layer is added to bring the output back to the input size.
+\textbf{Discriminator:} a binary classifier that tries to distinguish between the predictions of the generator on the source and target domains. We follow \cite{DomAd} and used a fully convolutional network with 5 convolutional layers with a $4x4$ kernel and stride 2, each followed by a leaky ReLU (except for the last layer). Then we add an upsampling layer to match the output size with the input size.
 
 %-----------------------------------------------------------------------
 
@@ -244,18 +237,54 @@ where $\hat{D}_t$ is ${D}_t$ augmented with the pseudo-labels.
 
 %------------------------------------------------------------------------
 \section{Experiments}
-\subsection{Datasets and Training Details}
-The performance of the BiSeNet network on the Cityscapes and GTA5 datasets was evaluated in each phase. Various levels of data augmentation were applied to the individual datasets before moving on to the main task of domain adaptation.
+In this section we present a comprehensive evaluation of the segmentation network’s performance on the target dataset at each stage. We apply multiple data augmentation techniques to the synthetic dataset to enhance cross-domain performance, setting the stage for the primary task of domain adaptation.
 
-\textbf{Training Details}: All training was conducted for 50 epochs without early stopping on both CoLab and personal computers. The results presented in the paper were obtained from the same computer to avoid any device-related discrepancies.
+\subsection{Datasets}
 
-To train BiSeNet, we used SGD with a momentum of 0.9, a weight decay of $1e-4$, and an initial learning rate of 0.01, which was adjusted following the 'poly' learning rate scheduler. For the discriminator used in Domain Adaptation, we used an Adam optimizer with a learning rate of 0.001 and a 'poly' learning rate scheduler.
+\textbf{GTA5}: This dataset \cite{GroundTruth} consists of 24,966 computer-generated images extracted from a video game. For training our model, we use 2,000 images and reserve 500 for testing. The original image size is 1914x1052.
 
-As BiSeNet backbone we used STDCNet813 with pretrained weights on ImageNet taken from \cite{RealTimeBiSeNet}
+\textbf{Cityscapes}: This dataset \cite{City} comprises approximately 5,000 finely annotated images of German cities, with a focus on semantic understanding of urban street scenes. For performance reasons, we utilize around 1,572 for training and 500 for testing our model. The original size of the images is 2048x10243.
 
-\textbf{GTA5}: The dataset consists of 24,966 computer-generated images extracted from a video game. To train our model, we will use 2000 images and reserve 500 for testing. The original image size of 1914x1052 has been resized to 957x526.
+In both cases, images are resized to half of their original size in order to reduce computational cost and to ensure that the input data to the network is within a similar scale.
 
-\textbf{Cityscapes}: This dataset consists of about 5000 finely annotated images of German cities, with a focus on semantic understanding of urban street scenes. For performance reasons, we only utilized around 2000 of these images to train and test our model, resizing the original images to 1024x512.
+\subsection{Training Details}
+All training is conducted for 50 epochs on both CoLab and personal devices. The results presented in the paper are derived from the same source to avoid any device-related discrepancies.\\
+
+TODO !!!! CHECK BELOW
+
+To train BiSeNet, we used SGD with a momentum of 0.9, a weight decay of $1e^{-4}$, and an initial learning rate of 0.01, which was adjusted following the 'poly' learning rate scheduler. For the discriminator used in Domain Adaptation, we used an Adam optimizer with a learning rate of 0.001 and a 'poly' learning rate scheduler.
+
+For the backbone of our BiSeNet model we use STDCNet813 initialized with the pretrained weights on ImageNet taken from the authors of \cite{RealTimeBiSeNet}.\\
+
+\textbf{Preprocessing}: During the preprocessing stage of all our experiments, we employ data normalization and rescale the tensor values from the range [0, 255] to [0.0, 0.1]. Apart from FDA, which utilizes the mean of the Cityscapes dataset for implementation purposes, we use the mean and variance from the ImageNet dataset. This approach is adopted to ensure that the input data to the network falls within a similar scale, thereby enhancing the stability and speed of the network training process. It also improves learning dynamics by ensuring consistent gradient scales across all layers, adds a regularization effect reducing overfitting and prevents saturation of activation functions.
+
+\subsection{Initial Training}
+
+Following the project requirements, we first evaluate the capabilities of BiSeNet by training our model on the training split of one dataset and testing it on the validation split of the same. The results of this first round of training are listed in Tab. \ref{tab:result}.
+
+Specifically, to train on Cityscapes, we use the fine-grained labels provided by \cite{City}, which have 19 distinct semantic classes. As expected, the model performs quite well when we test it on data from the same domain it was trained on, since there is no domain shift. Therefore, we consider this result our upper bound for the following phases of the project.\\
+
+After training on GTA5 and assessing the performace of the model, we start a cross-domain evaluation of the model trained on this synthetic dataset on Cityscapes. At this point the results change drastically: we observe a significant drop in performance, which highlights the presence of a large domain shift between the two datasets. The model trained on GTA5 cannot generalize well to the real-world domain, because of the differences in visual appearance, scene layouts, and other domain-specific factors.
+
+The accuracy and mIoU both plummet (see Tab. \ref{tab:result}), and the model often fails to recognize basic structures in the test images, especially the fine details involving people, traffic lights, and other small objects.
+
+\subsection{Data Augmentation}
+
+We first use different data enhancement techniques to reduce the domain discrepancy as much as possible, which improves the initial performance. We try two different types of data augmentation, each with a 50\% chance of being applied to an image from the GTA5 dataset.
+
+The first type, referred to as weak data augmentation, involves enlarging and cropping the images, as well as flipping them horizontally. This is done to concentrate on the finer details within the synthetic images.
+
+The second type, strong data augmentation, includes all the operations listed above, with the addition of blurring and color jittering. The purpose of this is to enhance the diversity of the images and to minimize the domain gap between the GTA5 and CityScapes datasets.\\
+
+As underlined by the results listed in Tab. \ref{tab:result}, we observe that the alteration of color and saturation transformations notably enhances the overall performance. This underscores the substantial disparities, particularly in the color domain, between the two datasets utilized. Consequently, we anticipate that a style-transfer method such as FDA will be an optimal solution for our specific scenario. 
+
+\subsection{Unsupervised Adversarial Domain Adaptation}
+
+TODO !!!!
+
+We start to perform adversarial training with labelled synthetic data (source domain) GTA5 and unlabelled real-word data (target domain) Cityscapes.
+
+Slightly better results were obtained with Adversarial Domain Adaptation, but the instability of the training and the general complexity, combined with the not very good results in our case, led us to look for valid alternatives.
 
 \subsection{FDA with Single Scale}
 
@@ -263,34 +292,41 @@ As BiSeNet backbone we used STDCNet813 with pretrained weights on ImageNet taken
     \centering
     \includegraphics[width=1\linewidth]{fda05.png}
     \caption{Example of FDA style-transfer for $\beta$ = 0.05.}
-    \label{fig:fdastyle}
+    \label{fig:fdastylef}
 \end{figure}
 
 Following the example of \cite{fda}, we instantiate three BiSeNet segmentation networks with $\beta = 0.01, 0.05, 0.09$, and train them separately using Eq. \eqref{eq:overall_loss}. We set $\lambda_{ent} = 0.005$ and $\eta = 2.0$ for all experiments.
 Choosing an appropriate value for $\beta$ is crucial as it can affect the quality of the domain adaptation. A small $\beta$ means only a small portion of the low-frequency components are swapped, which may result in insufficient adaptation. Conversely, a large $\beta$ may cause too much distortion in the source images and loss of semantic information, with visible artifacts.
 
-\begin{table}[]
+It’s important to highlight that, unlike previous stages, in Fourier Domain Adaptation (FDA), normalization is applied only after the domain shift has been performed. This is due to the fact that the Fast Fourier Transform (FFT) algorithm, which is used in FDA, is numerically stable for non-negative values. Applying normalization prior to the transformation could result in large areas of artifacts. As such, images are maintained within the range [0, 255] before the transformation.
+
+After the FDA process, the images are normalized and rescaled to the range [0, 1] for the purpose of training the segmentation network. In this context, the normalization is carried out based on the mean value of the Cityscapes dataset. The reason for this is that FDA specifically aims to align the source (GTA5) and target (Cityscapes) domains in the feature space.
+
+\begin{table}[b]
     \centering
     \begin{tabular}{@{}lccc@{}}
     \toprule
     $\beta$ & Accuracy(\%) & mIoU(\%) \\
     \midrule
-        0.01 & 68.1 & 25.7 \\
-        0.05 & 68.5 & 26.5 \\
-        0.09 & 71.6 & 27.6 \\
+        0.01 & 69.8 & 30.4 \\
+        0.05 & 70.8 & 29.4 \\
+        0.09 & 72.9 & 32.6 \\
         \bottomrule
     \end{tabular}
-    \caption{Training results of Single Scale FDA with various $\beta$.}
+    \caption{Training results of Single Scale FDA with various $\beta$ and weak data augmentation.}
     \label{tab:fda_single_scale}
 \end{table}
 
+We experiment using both non-augmented images and weakly augmented ones, which are enlarged and then cropped to match the size of the Cityscapes images. During this phase, we deliberately avoid strong data augmentation techniques that modify style attributes such as color and contrast, to prevent any interference with the effective style transfer of FDA.
+Our observations indicate that the weakly augmented runs yield better performance. This is likely because the model can concentrate more on finer details, such as humans, poles, traffic lights, and so forth. Consequently, we decide to maintain this setting for subsequent steps. Our best results are collected in Tab. \ref{tab:fda_single_scale}.
+
 \subsection{Multi-band Transfer (MBT)}
 
-We conducted an evaluation of the averaged predictions from our three trained models on the Cityscapes Validation Set. This resulted in an additional improvement, achieving an accuracy of 72.5\% and a mIoU of 30.1\%. The enhancement in performance was anticipated as we noted that, even with variations in $\beta$, no single network consistently outperformed others across all the semantic classes.\\
+We conduct an evaluation of the averaged predictions from our three trained models on the Cityscapes Validation Set. This results in an additional improvement, as reported in Tab. \ref{tab:result}. The expected enhancement in performance is due to the observation that no single network consistently surpasses others across all semantic classes, regardless of the variations in the value of $\beta$.\\
 
 \begin{figure}[h]
     \centering
-    \includegraphics[width=1\linewidth]{FDASSL.png}
+    \includegraphics[width=0.9\linewidth]{FDASSL.png}
     \caption{Example of a RGB generated pseudo-label.}
     \label{fig:pseudolabel}
 \end{figure}
@@ -300,6 +336,28 @@ In the second phase, our focus shifts to the generation of pseudo-labels for the
 While MBT already offers a form of regularization by leveraging spectral diversity, we further enhance this by implementing a thresholding method. This method filters out low-confidence predictions from the pseudo-labels, accepting only those predictions that are within the top 66\% or exceed a confidence level of 0.9 for each semantic class.
 
 As depicted in Fig. \ref{fig:pseudolabel}, the black areas located along the borders of each object represent regions where the model’s predictions are less confident. To prevent these uncertain areas from influencing the learning process, we assign them a label of 255, which corresponds to the “ignored class”. This ensures that the model’s training is not adversely affected by these low-confidence predictions.
+
+\begin{table*}[t]
+  \centering
+  \begin{tabular}{@{}lccccc@{}}
+    \toprule
+    Method & Accuracy & mIoU & Epoch Time & Batch Size & Dataset\\
+    \midrule
+    Cityscapes & 80 & 53.4 & 1:15 & 20 & CS$\rightarrow$CS \\
+    GTA5 & 75.8 & 47.8 & 1:35 & 20 & GTA$\rightarrow$GTA\\
+    Un-Adapted Cross Domain & 44.8 & 17.9 & --- & - & GTA$\rightarrow$CS\\
+    CD Data Augmentation 1 & 43.3 & 17.2 & 1:21 & 10 & GTA$\rightarrow$CS\\
+    CD Data Augmentation 2 & 39.6 & 26.4 & 1:40 & 10 & GTA$\rightarrow$CS\\
+    Adversarial DA (augm2) & 72.1 & 30.9 & 2:40 & 10 & GTA,CS$\rightarrow$CS\\
+    Fourier DA ($\beta=0.09$) & 72.9 & 32.6 & 1:34 & 10 & GTA,CS$\rightarrow$CS\\
+    Fourier DA (MBT) & 73.1 & 33.0 & --- & - & GTA,CS$\rightarrow$CS\\
+    Fourier DA (SSL $\beta=0.01$) & 75.7 & 36.7 & 1:36 & 10 & GTA,CS$\rightarrow$CS\\
+    Fourier DA (SSL + MBT) & 75.9 & 37.5 & --- & - & GTA,CS$\rightarrow$CS\\
+    \bottomrule
+  \end{tabular}
+  \caption{Training results of all our project}
+  \label{tab:result}
+\end{table*}
 
 \subsection{Self-supervised Learning FDA}
 
@@ -311,19 +369,17 @@ We instantiate other three new segmentation networks with $\beta = 0.01, 0.05, 0
   \toprule
   $\beta$ & Accuracy(\%) & mIoU(\%) \\
   \midrule
-    0.01 & 73.0 & 32.0 \\
-    0.05 & 73.1 & 32.0 \\
+    0.01 & 75.7 & 36.7 \\
+    0.05 & 75.2 & 36.4 \\
     0.09 & 73.8 & 31.5 \\
     \bottomrule
   \end{tabular}
-  \caption{Training results of SSL FDA with various $\beta$.}
+  \caption{Training results of SSL FDA with various $\beta$ and weak data augmentation.}
   \label{tab:ss_fda}
 \end{table}
 
-Upon examining the relative improvement of each $\phi^w_{\beta}$, we observe a trend similar to that reported by the authors of \cite{fda}. Specifically, as reported in Tab. \ref{tab:fda_single_scale} and Tab. \ref{tab:ss_fda}, the best performer in the initial training round is $\phi^w_{{\beta} = 0.09}$. However, this model becomes the least effective during the first Self-supervised Learning round.
-
+Upon examining the relative improvement of each $\phi^w_{\beta}$, we observe a trend similar to that reported by the authors of \cite{fda}. Specifically, as reported in Tab. \ref{tab:fda_single_scale} and Tab. \ref{tab:ss_fda}, the best performer in the initial training round is $\phi^w_{{\beta} = 0.09}$. However, this model becomes the least effective during the first Self-supervised Learning round.\\
 We hypothesize that using a smaller value for $\beta$ will lead to fewer changes in the adapted source dataset, making it less likely to match the target dataset compared to when a larger $\beta$ is used. However, when we use pseudo-labels to bring the two datasets closer together, the adapted source dataset will be less biased because it’s closer to the target dataset and has less variation.\\
-
 Lastly, we aim to further boost performance by conducting an extra evaluation using Multi-band Transfer (MBT) and the outcomes of Self-Supervised Learning (SLL).
 
 
@@ -331,40 +387,22 @@ Lastly, we aim to further boost performance by conducting an extra evaluation us
 
 
 
-\begin{table*}
-  \centering
-  \begin{tabular}{@{}lccccc@{}}
-    \toprule
-    Method & Accuracy & mIoU & Epoch Time & Batch Size & Dataset\\
-    \midrule
-    Cityscapes & 80 & 53.4 & 1:05 & 10 & CS$\rightarrow$CS \\
-    GTA5 & 75.8 & 47.8 & 1:20 & 10 & GTA$\rightarrow$GTA\\
-    Un-Adapted Cross Domain & 38.6 & 17 & 1:20 & 10 & GTA$\rightarrow$CS\\
-    CD Data Augmentation 1 & 43.3 & 17.2 & 1:21 & 10 & GTA$\rightarrow$CS\\
-    CD Data Augmentation 2 & 39.6 & 26.4 & 1:40 & 10 & GTA$\rightarrow$CS\\
-    Adversarial DA & 65.0 & 27.1 & 2:33 & 5 & GTA,CS$\rightarrow$CS\\
-    Fourier DA & 71.6 & 27.6 & 1:40 & 5 & GTA,CS$\rightarrow$CS\\
-    Fourier DA (w/ SSL)& 73.8 & 32.0 & 1:40 & 5 & GTA,CS$\rightarrow$CS\\
-    Fourier DA (MBT w/ SSL)& 74.5 & 33.6 & --- & - & GTA,CS$\rightarrow$CS\\
-    \bottomrule
-  \end{tabular}
-  \caption{}
-  \label{tab:result}
-\end{table*}
+
 
 
 
 %------------------------------------------------------------------------
 \section{Conclusion}
 
+TODO !!!! CHECK BELOW
+
 In this study, we investigated the efficacy of various deep learning techniques for semantic segmentation across datasets and domains. Our comprehensive analysis, as summarized in the table of results Table \ref{tab:result}, sheds light on the performance and efficiency of different models under diverse conditions.\\
-Firstly, we evaluated our models on the Cityscapes dataset, a widely-used benchmark in the field of semantic segmentation. Our results demonstrate strong accuracy and mean Intersection over Union (mIoU) scores of 80.0\% and 53.4\%, respectively.\\
-Furthermore, we explored the generalization capabilities of our models by testing them on the GTA5 dataset, which features synthetic urban scenes with distinct visual characteristics. Despite the domain shift, our models exhibited competitive performance, achieving an accuracy of 75.8\% and an mIoU of 47.8\%.\\
-To assess the model's performance in cross-domain scenarios, we conducted experiments on a custom Cross Domain dataset, simulating real-world variations in visual appearance and context. While the results showed a decrease in accuracy and mIoU compared to within-domain datasets, our models still managed to provide meaningful semantic segmentations, underscoring their potential for real-world applications.\\
-Moreover, we investigated the impact of data augmentation techniques and domain adaptation on model performance. Augmenting the Cross Domain dataset with various techniques yielded mixed results, with Augmented CD 2 showcasing improved mIoU compared to its predecessor. \\
-Additionally, employing domain adaptation strategies such as SingleLayer DA and then we improve the results with Fourier DA enhanced model performance, particularly in mitigating domain shift effects and adding psuedo-labels we obtaing a final results of mIoU of 33.6\% and an accuracy of 74.5\%
-In terms of computational efficiency, our experiments revealed varying epoch times and batch sizes across different configurations. While larger batch sizes generally led to faster convergence, they also incurred longer epoch times and potential memory constraints. \\
-This emphasizes the importance of optimizing batch sizes and training strategies to achieve a balance between efficiency and performance.\\
+First, we evaluated our models on the Cityscapes dataset, a widely used benchmark in the field of semantic segmentation. Our results demonstrate good accuracy and average Intersection over Union (mIoU) scores of 80.0\% and 53.4\%, respectively.
+A second benchmark was performed on the synthetic dataset GTA5, which contains urban scenes extracted from the game of the same name, obtaining in this case an accuracy of 75.8\% and an mIoU of 47.8\%
+\\%Come ti sembra? no aspetta
+To evaluate the model's performance in cross-domain scenarios, we first tested the effect of domain shifting without any type of optimization, and found that the model's performance was severely degraded by domain shifting.\\
+We also investigated the impact of data augmentation techniques and domain adaptation on model performance. Augmenting the Cross Domain dataset with various techniques yielded mixed results, with Augmented CD 2 showing improved mIoU compared to its predecessor. \\
+In addition, the use of domain adaptation strategies such as Generative Adversarial Training and Fourier Domain Adaptation significantly improved the performance of the model, in particular the use of FDA combined with Self Supervised Learning with the creation of pseudo-labels of the target images allowed us to achieve remarkable results, obtaining a mIoU of 36.7\% and an accuracy of 75.7\%.\%. \\
 In conclusion, by leveraging state-of-the-art techniques and conducting rigorous experiments, we demonstrate the potential of deep learning in addressing complex vision tasks and advancing real-world applications in urban scene understanding and beyond.
 
 

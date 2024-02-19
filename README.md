@@ -49,7 +49,7 @@ This repository contains the code of our project for the course "Advanced Machin
       Train the model on the the training set of Cityscapes and evaluate it on the validation set of Cityscapes.
 
       ```bash
-      main.py --dataset Cityscapes --data_transformations 0 --batch_size 10 --learning_rate 0.01 --num_epochs 50 --save_model_path trained_models\cityscapes --resume False --comment cityscapes --mode train --num_workers 4 --optimizer sgd
+      main.py --dataset Cityscapes --data_transformations 0 --batch_size 20 --learning_rate 0.01 --num_epochs 50 --save_model_path trained_models\cityscapes --resume False --comment cityscapes --mode train --num_workers 4 --optimizer sgd
       ```
 
       | Accuracy _(%)_ | mIoU _(%)_ | Train Time (avg per-epochs) |
@@ -61,7 +61,7 @@ This repository contains the code of our project for the course "Advanced Machin
       Train the model on the training set of GTA5 and evaluate it on the validation set of GTA5.
 
       ```bash
-      main.py --dataset GTA5 --data_transformations 0 --batch_size 10 --learning_rate 0.01 --num_epochs 50 --save_model_path trained_models\gta --resume False --comment gta --mode train --num_workers 4 --optimizer sgd
+      main.py --dataset GTA5 --data_transformations 0 --batch_size 20 --learning_rate 0.01 --num_epochs 50 --save_model_path trained_models\gta --resume False --comment gta --mode train --num_workers 4 --optimizer sgd
       ```
 
       | Accuracy _(%)_ | mIoU _(%)_ | Train Time (avg per-epochs) |
@@ -100,15 +100,15 @@ This repository contains the code of our project for the course "Advanced Machin
 3. **IMPLEMENTING UNSUPERVISED ADVERSARIAL DOMAIN ADAPTATION** - Perform adversarial training with labeled synthetic data (GTA5) and unlabelled real-world data (Cityscapes). Evaluate the model on the validation set of Cityscapes.
 
     ```bash
-    main.py --dataset CROSS_DOMAIN --data_transformations 0 --batch_size 6 --learning_rate 0.01 --num_epochs 50 --save_model_path trained_models\norm_da --resume False --comment norm_da --mode train_da --num_workers 4 --optimizer sgd --d_lr 0.001
+    main.py --dataset CROSS_DOMAIN --data_transformations 0 --batch_size 10 --learning_rate 0.01 --num_epochs 50 --save_model_path trained_models\norm_da --resume False --comment norm_da --mode train_da --num_workers 4 --optimizer sgd --d_lr 0.001
     ```
 
     ```bash
-    main.py --dataset CROSS_DOMAIN --data_transformations 1 --batch_size 6 --learning_rate 0.01 --num_epochs 50 --save_model_path trained_models\norm_da_augm1 --resume False --comment norm_da_augm1 --mode train_da --num_workers 4 --optimizer sgd --d_lr 0.001
+    main.py --dataset CROSS_DOMAIN --data_transformations 1 --batch_size 10 --learning_rate 0.01 --num_epochs 50 --save_model_path trained_models\norm_da_augm1 --resume False --comment norm_da_augm1 --mode train_da --num_workers 4 --optimizer sgd --d_lr 0.001
     ```
 
     ```bash
-    main.py --dataset CROSS_DOMAIN --data_transformations 2 --batch_size 6 --learning_rate 0.01 --num_epochs 50 --save_model_path trained_models\norm_da_augm2 --resume False --comment norm_da_augm2 --mode train_da --num_workers 4 --optimizer sgd --d_lr 0.001
+    main.py --dataset CROSS_DOMAIN --data_transformations 2 --batch_size 10 --learning_rate 0.01 --num_epochs 50 --save_model_path trained_models\norm_da_augm2 --resume False --comment norm_da_augm2 --mode train_da --num_workers 4 --optimizer sgd --d_lr 0.001
     ```
 
     | Augmentation        | Accuracy _(%)_ | mIoU _(%)_ | Train Time (avg per-epochs) |
@@ -128,13 +128,13 @@ This repository contains the code of our project for the course "Advanced Machin
       Train the model with labeled enhanced synthetic data from GTA5 and unlabelled real-world data from Cityscapes (semi-supervised learning). Evaluate the model on the validation set of Cityscapes.
 
       ```bash
-      main.py --dataset CROSS_DOMAIN --data_transformations 0 --batch_size 5 --learning_rate 0.01 --num_epochs 50 --save_model_path trained_models\norm_fda0.09 --resume False --comment norm_fda0.09 --mode train_fda --num_workers 4 --optimizer sgd --beta 0.09
+      main.py --dataset CROSS_DOMAIN --data_transformations 0 --batch_size 10 --learning_rate 0.01 --num_epochs 50 --save_model_path trained_models\norm_fda0.09 --resume False --comment norm_fda0.09 --mode train_fda --num_workers 4 --optimizer sgd --beta 0.09
       ```
       ```bash
-      main.py --dataset CROSS_DOMAIN --data_transformations 0 --batch_size 5 --learning_rate 0.05 --num_epochs 50 --save_model_path trained_models\norm_fda0.05 --resume False --comment norm_fda0.05 --mode train_fda --num_workers 4 --optimizer sgd --beta 0.05
+      main.py --dataset CROSS_DOMAIN --data_transformations 0 --batch_size 10 --learning_rate 0.05 --num_epochs 50 --save_model_path trained_models\norm_fda0.05 --resume False --comment norm_fda0.05 --mode train_fda --num_workers 4 --optimizer sgd --beta 0.05
       ```
       ```bash
-      main.py --dataset CROSS_DOMAIN --data_transformations 0 --batch_size 5 --learning_rate 0.01 --num_epochs 50 --save_model_path trained_models\norm_fda0.01 --resume False --comment norm_fda0.01 --mode train_fda --num_workers 4 --optimizer sgd --beta 0.01
+      main.py --dataset CROSS_DOMAIN --data_transformations 0 --batch_size 10 --learning_rate 0.01 --num_epochs 50 --save_model_path trained_models\norm_fda0.01 --resume False --comment norm_fda0.01 --mode train_fda --num_workers 4 --optimizer sgd --beta 0.01
       ```
       | beta | Accuracy _(%)_ | mIoU _(%)_ | Train Time (avg per-epochs) |
       |------|----------------|------------|-----------------------------|
@@ -168,13 +168,13 @@ This repository contains the code of our project for the course "Advanced Machin
       Train the model with labeled synthetic data from GTA5 and pseudo-labeled real-world data from Cityscapes. Evaluate the model on the validation set of Cityscapes.
       
       ```bash
-      main.py --dataset CROSS_DOMAIN --data_transformations 0 --batch_size 5 --learning_rate 0.01 --num_epochs 50 --save_model_path trained_models\selflearn_fda0.01 --resume False --comment selflearn_fda0.01 --mode self_learning --num_workers 4 --optimizer sgd --beta 0.01
+      main.py --dataset CROSS_DOMAIN --data_transformations 0 --batch_size 10 --learning_rate 0.01 --num_epochs 50 --save_model_path trained_models\selflearn_fda0.01 --resume False --comment selflearn_fda0.01 --mode self_learning --num_workers 4 --optimizer sgd --beta 0.01
       ```
       ```bash
-      main.py --dataset CROSS_DOMAIN --data_transformations 0 --batch_size 5 --learning_rate 0.05 --num_epochs 50 --save_model_path trained_models\selflearn_fda0.05 --resume False --comment selflearn_fda0.05 --mode self_learning --num_workers 4 --optimizer sgd --beta 0.05
+      main.py --dataset CROSS_DOMAIN --data_transformations 0 --batch_size 10 --learning_rate 0.05 --num_epochs 50 --save_model_path trained_models\selflearn_fda0.05 --resume False --comment selflearn_fda0.05 --mode self_learning --num_workers 4 --optimizer sgd --beta 0.05
       ```
       ```bash
-      main.py --dataset CROSS_DOMAIN --data_transformations 0 --batch_size 5 --learning_rate 0.01 --num_epochs 50 --save_model_path trained_models\selflearn_fda0.09 --resume False --comment selflearn_fda0.09 --mode self_learning --num_workers 4 --optimizer sgd --beta 0.09
+      main.py --dataset CROSS_DOMAIN --data_transformations 0 --batch_size 10 --learning_rate 0.01 --num_epochs 50 --save_model_path trained_models\selflearn_fda0.09 --resume False --comment selflearn_fda0.09 --mode self_learning --num_workers 4 --optimizer sgd --beta 0.09
       ```
       | beta | Accuracy _(%)_ | mIoU _(%)_ | Train Time (avg per-epochs) |
       |------|----------------|------------|-----------------------------|
